@@ -95,7 +95,10 @@
     <div id="group-panel" class="hidden">
       <div class="group-panel-header">
         <span id="group-panel-title"></span>
-        <button class="btn-icon" id="group-add-member-btn" title="Add friend to group">+</button>
+        <div class="group-panel-actions">
+          <button class="btn-icon" id="group-add-member-btn" title="Add friend to group">+</button>
+          <button class="btn-icon" id="group-leave-btn" title="Leave group">⎋</button>
+        </div>
       </div>
       <div id="group-members-list"></div>
     </div>
@@ -175,7 +178,15 @@
 </div>
 
 <script src="/socket.io/socket.io.js"></script>
+<script src="/js/state.js"></script>
+<script src="/js/utils.js"></script>
+<script src="/js/api.js"></script>
 <script src="/js/voice.js"></script>
+<script src="/js/chat.js"></script>
+<script src="/js/friends.js"></script>
+<script src="/js/groups.js"></script>
+<script src="/js/socket-client.js"></script>
+<script src="/js/auth.js"></script>
 <script src="/js/app.js"></script>
 </body>
 </html>

@@ -321,6 +321,11 @@ input { font-family: inherit; }
   text-transform: uppercase;
 }
 
+.group-panel-actions {
+  display: flex;
+  gap: 4px;
+}
+
 .btn-icon {
   background: transparent;
   color: var(--text-muted);

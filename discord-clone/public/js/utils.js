@@ -1,0 +1,38 @@
+// Small DOM query and formatting helpers shared by every other module.
+const Utils = (() => {
+  const $ = (sel) => document.querySelector(sel);
+  const $$ = (sel) => document.querySelectorAll(sel);
+
+  function initials(name) {
+    return (name || '?').trim().charAt(0).toUpperCase();
+  }
+
+  function escapeHtml(str) {
+    const div = document.createElement('div');
+    div.textContent = str;
+    return div.innerHTML;
+  }
+
+  function formatTime(iso) {
+    const d = new Date(iso.includes('Z') || iso.includes('+') ? iso : iso + 'Z');
+    return d.toLocaleString(undefined, { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' });
+  }
+
+  function avatarEl(user, size = '') {
+    const el = document.createElement('div');
+    el.className = `avatar ${size}`;
+    el.style.background = user.avatarColor || user.senderColor || '#5865F2';
+    el.textContent = initials(user.displayName || user.senderName);
+    return el;
+  }
+
+  function avatarWithStatus(user) {
+    const wrap = avatarEl(user);
+    const dot = document.createElement('div');
+    dot.className = `status-dot ${user.status === 'online' ? 'online' : ''}`;
+    wrap.appendChild(dot);
+    return wrap;
+  }
+
+  return { $, $$, initials, escapeHtml, formatTime, avatarEl, avatarWithStatus };
+})();
