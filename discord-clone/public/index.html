@@ -1,0 +1,161 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Chatter</title>
+<link rel="stylesheet" href="/css/style.css" />
+</head>
+<body>
+
+<!-- ============ AUTH SCREEN ============ -->
+<div id="auth-screen" class="auth-screen">
+  <div class="auth-card">
+    <div class="auth-logo">
+      <div class="logo-badge">C</div>
+      <h1>Chatter</h1>
+    </div>
+
+    <div id="login-form" class="auth-form">
+      <h2>Welcome back!</h2>
+      <p class="auth-sub">We're so excited to see you again.</p>
+
+      <label>Username</label>
+      <input type="text" id="login-username" autocomplete="username" placeholder="username" />
+
+      <label>Password</label>
+      <input type="password" id="login-password" autocomplete="current-password" placeholder="••••••••" />
+
+      <div class="auth-error" id="login-error"></div>
+
+      <button class="btn-primary" id="login-submit">Log In</button>
+      <p class="auth-switch">Need an account? <a href="#" id="show-register">Register</a></p>
+    </div>
+
+    <div id="register-form" class="auth-form hidden">
+      <h2>Create an account</h2>
+
+      <label>Display Name</label>
+      <input type="text" id="register-displayname" placeholder="How others see you" />
+
+      <label>Username</label>
+      <input type="text" id="register-username" autocomplete="username" placeholder="lowercase, no spaces" />
+
+      <label>Password</label>
+      <input type="password" id="register-password" autocomplete="new-password" placeholder="At least 6 characters" />
+
+      <div class="auth-error" id="register-error"></div>
+
+      <button class="btn-primary" id="register-submit">Register</button>
+      <p class="auth-switch">Already have an account? <a href="#" id="show-login">Log In</a></p>
+    </div>
+  </div>
+</div>
+
+<!-- ============ MAIN APP ============ -->
+<div id="app-screen" class="app-screen hidden">
+
+  <!-- Far-left rail: groups (servers) -->
+  <div class="rail">
+    <div class="rail-item active" id="rail-home" title="Friends">
+      <div class="rail-icon home-icon">💬</div>
+    </div>
+    <div class="rail-divider"></div>
+    <div id="rail-groups"></div>
+    <div class="rail-item rail-add" id="rail-add-group" title="Create a group">+</div>
+  </div>
+
+  <!-- Sidebar: friends list OR group members -->
+  <div class="sidebar">
+    <div class="sidebar-header" id="sidebar-header">Friends</div>
+
+    <!-- Friends home view -->
+    <div id="friends-panel">
+      <div class="sidebar-tabs">
+        <button class="tab-btn active" data-tab="online">Online</button>
+        <button class="tab-btn" data-tab="all">All</button>
+        <button class="tab-btn" data-tab="pending">Pending</button>
+        <button class="tab-btn" data-tab="add">Add Friend</button>
+      </div>
+
+      <div id="tab-online" class="tab-panel"></div>
+      <div id="tab-all" class="tab-panel hidden"></div>
+      <div id="tab-pending" class="tab-panel hidden"></div>
+      <div id="tab-add" class="tab-panel hidden">
+        <p class="panel-hint">Add a friend by their exact username.</p>
+        <div class="add-friend-row">
+          <input type="text" id="add-friend-input" placeholder="Enter a username" />
+          <button class="btn-primary btn-small" id="add-friend-submit">Send Request</button>
+        </div>
+        <div class="auth-error" id="add-friend-error"></div>
+      </div>
+    </div>
+
+    <!-- Group member list -->
+    <div id="group-panel" class="hidden">
+      <div class="group-panel-header">
+        <span id="group-panel-title"></span>
+        <button class="btn-icon" id="group-add-member-btn" title="Add friend to group">+</button>
+      </div>
+      <div id="group-members-list"></div>
+    </div>
+
+    <div class="sidebar-user">
+      <div class="user-avatar" id="me-avatar"></div>
+      <div class="user-info">
+        <div class="user-name" id="me-name"></div>
+        <div class="user-status">Online</div>
+      </div>
+      <button class="btn-icon" id="logout-btn" title="Log out">⏻</button>
+    </div>
+  </div>
+
+  <!-- Chat area -->
+  <div class="chat-area">
+    <div id="empty-state" class="empty-state">
+      <div class="empty-icon">👋</div>
+      <h2>Select a friend or group to start chatting</h2>
+    </div>
+
+    <div id="chat-panel" class="chat-panel hidden">
+      <div class="chat-header">
+        <span id="chat-title"></span>
+      </div>
+      <div class="chat-messages" id="chat-messages"></div>
+      <div class="typing-indicator" id="typing-indicator"></div>
+      <div class="chat-input-row">
+        <input type="text" id="chat-input" placeholder="Message..." maxlength="4000" />
+        <button class="btn-primary" id="chat-send">Send</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ============ MODALS ============ -->
+<div id="modal-overlay" class="modal-overlay hidden">
+  <div class="modal" id="create-group-modal">
+    <h2>Create a Group</h2>
+    <label>Group Name</label>
+    <input type="text" id="create-group-name" placeholder="Awesome group" />
+    <label>Add Friends</label>
+    <div id="create-group-friends" class="friend-checklist"></div>
+    <div class="modal-actions">
+      <button class="btn-secondary" id="create-group-cancel">Cancel</button>
+      <button class="btn-primary" id="create-group-confirm">Create</button>
+    </div>
+  </div>
+
+  <div class="modal hidden" id="add-member-modal">
+    <h2>Add Friend to Group</h2>
+    <div id="add-member-friends" class="friend-checklist"></div>
+    <div class="modal-actions">
+      <button class="btn-secondary" id="add-member-cancel">Cancel</button>
+      <button class="btn-primary" id="add-member-confirm">Add</button>
+    </div>
+  </div>
+</div>
+
+<script src="/socket.io/socket.io.js"></script>
+<script src="/js/app.js"></script>
+</body>
+</html>
