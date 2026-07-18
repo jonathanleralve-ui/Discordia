@@ -38,6 +38,22 @@ app.get('*', (req, res, next) => {
 // Map of userId -> Set of socket ids (a user can have multiple tabs open)
 const onlineSockets = new Map();
 
+// Map of groupId -> Map of socketId -> { userId, displayName, avatarColor, sharing }
+// Tracks who is currently in each group's voice channel (in-memory, resets on restart)
+const voiceRooms = new Map();
+
+function voiceRoom(groupId) {
+  if (!voiceRooms.has(groupId)) voiceRooms.set(groupId, new Map());
+  return voiceRooms.get(groupId);
+}
+
+function voicePeerList(groupId) {
+  return Array.from(voiceRoom(groupId).entries()).map(([socketId, info]) => ({
+    socketId,
+    ...info
+  }));
+}
+
 async function broadcastStatus(userId, status) {
   await db.query('UPDATE users SET status = $1 WHERE id = $2', [status, userId]);
   io.emit('presence:update', { userId, status });
@@ -165,6 +181,75 @@ io.on('connection', async (socket) => {
     }
   });
 
+  // ---- Voice channel + screen share signaling (WebRTC mesh) ----
+  // socket.currentVoiceGroup tracks which group's voice channel this socket is in, if any.
+
+  socket.on('voice:join', async ({ groupId }) => {
+    try {
+      const gid = Number(groupId);
+      const isMember = await db.query(
+        'SELECT 1 FROM group_members WHERE group_id = $1 AND user_id = $2',
+        [gid, uid]
+      );
+      if (isMember.rows.length === 0) {
+        socket.emit('error:message', { error: 'Not a member of this group' });
+        return;
+      }
+
+      // Leave any previous voice channel first (a socket can only be in one at a time)
+      if (socket.currentVoiceGroup) {
+        leaveVoiceChannel(socket, socket.currentVoiceGroup);
+      }
+
+      const userResult = await db.query('SELECT display_name, avatar_color FROM users WHERE id = $1', [uid]);
+      const user = userResult.rows[0];
+
+      // Tell the joining client who is already in the channel, so it can initiate connections to each
+      socket.emit('voice:existing-peers', { peers: voicePeerList(gid) });
+
+      const info = { userId: uid, displayName: user.display_name, avatarColor: user.avatar_color, sharing: false };
+      voiceRoom(gid).set(socket.id, info);
+      socket.currentVoiceGroup = gid;
+      socket.join(`voice:${gid}`);
+
+      socket.to(`voice:${gid}`).emit('voice:peer-joined', { socketId: socket.id, ...info });
+    } catch (err) {
+      console.error('voice:join error', err);
+      socket.emit('error:message', { error: 'Failed to join voice channel' });
+    }
+  });
+
+  socket.on('voice:leave', ({ groupId }) => {
+    leaveVoiceChannel(socket, Number(groupId));
+  });
+
+  // Relay WebRTC offers/answers/ICE candidates directly to a specific peer socket
+  socket.on('voice:signal', ({ to, data }) => {
+    if (!to) return;
+    io.to(to).emit('voice:signal', { from: socket.id, data });
+  });
+
+  socket.on('voice:screen-share-toggle', ({ groupId, sharing }) => {
+    const gid = Number(groupId);
+    const room = voiceRoom(gid);
+    const info = room.get(socket.id);
+    if (!info) return;
+    info.sharing = !!sharing;
+    io.to(`voice:${gid}`).emit('voice:peer-screen-update', { socketId: socket.id, sharing: info.sharing });
+  });
+
+  function leaveVoiceChannel(sock, gid) {
+    if (!gid) return;
+    const room = voiceRoom(gid);
+    if (room.has(sock.id)) {
+      room.delete(sock.id);
+      sock.leave(`voice:${gid}`);
+      io.to(`voice:${gid}`).emit('voice:peer-left', { socketId: sock.id });
+    }
+    if (sock.currentVoiceGroup === gid) sock.currentVoiceGroup = null;
+    if (room.size === 0) voiceRooms.delete(gid);
+  }
+
   socket.on('typing', ({ scope, id }) => {
     // scope: 'dm' | 'group', id: recipientId or groupId
     if (scope === 'dm') {
@@ -175,6 +260,10 @@ io.on('connection', async (socket) => {
   });
 
   socket.on('disconnect', () => {
+    if (socket.currentVoiceGroup) {
+      leaveVoiceChannel(socket, socket.currentVoiceGroup);
+    }
+
     const sockets = onlineSockets.get(uid);
     if (sockets) {
       sockets.delete(socket.id);

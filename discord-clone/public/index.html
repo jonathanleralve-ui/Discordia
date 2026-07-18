@@ -121,8 +121,27 @@
       <div class="chat-header">
         <span id="chat-title"></span>
       </div>
+
+      <!-- Voice channel bar: only shown when a group chat is open -->
+      <div id="voice-panel" class="voice-panel hidden">
+        <div class="voice-panel-top">
+          <span class="voice-panel-label">🔊 Voice — <span id="voice-group-name"></span></span>
+          <div class="voice-panel-actions">
+            <button class="btn-primary btn-small" id="voice-join-btn">Join Voice</button>
+            <div id="voice-controls" class="voice-controls hidden">
+              <button class="btn-icon-text" id="voice-mute-btn">🎙️ Mute</button>
+              <button class="btn-icon-text" id="voice-share-btn">🖥️ Share Screen</button>
+              <button class="btn-icon-text active-danger" id="voice-leave-btn">📞 Leave</button>
+            </div>
+          </div>
+        </div>
+        <div id="voice-participants" class="voice-participants"></div>
+        <div id="voice-video-grid" class="voice-video-grid hidden"></div>
+      </div>
+
       <div class="chat-messages" id="chat-messages"></div>
       <div class="typing-indicator" id="typing-indicator"></div>
+
       <div class="chat-input-row">
         <input type="text" id="chat-input" placeholder="Message..." maxlength="4000" />
         <button class="btn-primary" id="chat-send">Send</button>
@@ -156,6 +175,7 @@
 </div>
 
 <script src="/socket.io/socket.io.js"></script>
+<script src="/js/voice.js"></script>
 <script src="/js/app.js"></script>
 </body>
 </html>
