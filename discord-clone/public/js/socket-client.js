@@ -18,12 +18,12 @@ const SocketClient = (() => {
       Chat.handleIncomingMessage('dm', msg);
     });
 
-    socket.on('group:message', (msg) => {
-      Chat.handleIncomingMessage('group', msg);
+    socket.on('channel:message', (msg) => {
+      Chat.handleIncomingMessage('channel', msg);
     });
 
-    socket.on('typing', ({ scope, from, groupId }) => {
-      Chat.handleTypingEvent(scope, from, groupId);
+    socket.on('typing', ({ scope, from, channelId }) => {
+      Chat.handleTypingEvent(scope, from, channelId);
     });
 
     socket.on('error:message', ({ error }) => {

@@ -38,10 +38,18 @@ const Api = (() => {
     leave: (groupId) => request(`/groups/${groupId}/members/me`, { method: 'DELETE' })
   };
 
-  const messages = {
-    dmHistory: (userId) => request(`/messages/dm/${userId}`),
-    groupHistory: (groupId) => request(`/messages/group/${groupId}`)
+  // Text/voice channels live inside a group, same as Discord.
+  const channels = {
+    list: (groupId) => request(`/groups/${groupId}/channels`),
+    create: (groupId, name, type) =>
+      request(`/groups/${groupId}/channels`, { method: 'POST', body: JSON.stringify({ name, type }) }),
+    remove: (channelId) => request(`/channels/${channelId}`, { method: 'DELETE' })
   };
 
-  return { request, auth, friends, groups, messages };
+  const messages = {
+    dmHistory: (userId) => request(`/messages/dm/${userId}`),
+    channelHistory: (channelId) => request(`/messages/channel/${channelId}`)
+  };
+
+  return { request, auth, friends, groups, channels, messages };
 })();

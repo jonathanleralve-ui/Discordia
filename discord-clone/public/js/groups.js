@@ -1,7 +1,9 @@
-// Group rail icons, create-group / add-member modals, and the member list
-// panel shown when a group chat is open.
+// Group rail icons, the channel list + member list shown when a group is
+// open, and the create-group / add-member / create-channel modals.
 const Groups = (() => {
   const { $, $$, escapeHtml, initials, avatarWithStatus } = Utils;
+
+  let createChannelType = 'text';
 
   function refresh() {
     return Api.groups.list().then((data) => {
@@ -26,22 +28,131 @@ const Groups = (() => {
   }
 
   function open(g) {
-    AppState.activeChat = { type: 'group', id: g.id, name: g.name };
+    AppState.activeGroup = g;
+    AppState.activeChat = null;
     App.setActiveRail(document.querySelector(`.rail-item[data-group-id="${g.id}"]`));
     $('#sidebar-header').textContent = g.name;
     $('#friends-panel').classList.add('hidden');
     $('#group-panel').classList.remove('hidden');
-    $('#group-panel-title').textContent = 'Members';
+    $('#group-panel-title').textContent = g.name;
+    $('#empty-state').classList.remove('hidden');
+    $('#chat-panel').classList.add('hidden');
 
-    AppState.socket.emit('group:join', g.id);
-    VoiceChat.showGroup(g.id, g.name);
+    VoiceChat.refreshPanelForGroup(g.id);
 
     Api.groups.members(g.id).then((data) => {
       AppState.activeMemberIds = data.members.map((m) => m.id);
       renderMembers(data.members);
     });
 
-    Chat.openChatWindow();
+    loadChannels(g.id);
+  }
+
+  function loadChannels(groupId) {
+    return Api.channels.list(groupId).then((data) => {
+      AppState.activeGroupChannels = data.channels;
+      renderChannels();
+      // Land on the first text channel automatically, like Discord does.
+      const firstText = data.channels.find((c) => c.type === 'text');
+      if (firstText) Chat.openChannel(firstText);
+    });
+  }
+
+  function renderChannels() {
+    const container = $('#channel-list');
+    container.innerHTML = '';
+    if (!AppState.activeGroup) return;
+
+    const isOwner = AppState.activeGroup.ownerId === AppState.me.id;
+    const text = AppState.activeGroupChannels.filter((c) => c.type === 'text');
+    const voice = AppState.activeGroupChannels.filter((c) => c.type === 'voice');
+
+    container.appendChild(buildCategoryHeader('TEXT CHANNELS', 'text'));
+    text.forEach((c) => container.appendChild(buildChannelRow(c, isOwner)));
+    if (text.length === 0) container.appendChild(buildEmptyHint('No text channels yet.'));
+
+    container.appendChild(buildCategoryHeader('VOICE CHANNELS', 'voice'));
+    voice.forEach((c) => container.appendChild(buildChannelRow(c, isOwner)));
+    if (voice.length === 0) container.appendChild(buildEmptyHint('No voice channels yet.'));
+  }
+
+  // Re-render without re-fetching, e.g. after switching the active text
+  // channel or connecting/disconnecting from a voice channel.
+  function refreshChannelHighlight() {
+    if (AppState.activeGroup) renderChannels();
+  }
+
+  function buildEmptyHint(text) {
+    const el = document.createElement('div');
+    el.className = 'empty-list-hint';
+    el.textContent = text;
+    return el;
+  }
+
+  function buildCategoryHeader(label, type) {
+    const el = document.createElement('div');
+    el.className = 'channel-category';
+    const span = document.createElement('span');
+    span.textContent = label;
+    el.appendChild(span);
+    const addBtn = document.createElement('button');
+    addBtn.className = 'channel-add-btn';
+    addBtn.textContent = '+';
+    addBtn.title = `Create ${type} channel`;
+    addBtn.addEventListener('click', () => openCreateChannelModal(type));
+    el.appendChild(addBtn);
+    return el;
+  }
+
+  function buildChannelRow(c, isOwner) {
+    const row = document.createElement('div');
+    const isVoice = c.type === 'voice';
+    const active = isVoice
+      ? VoiceChat.isConnectedTo(c.id)
+      : (AppState.activeChat && AppState.activeChat.type === 'channel' && AppState.activeChat.id === c.id);
+    row.className = `channel-row ${isVoice ? 'voice-row' : ''} ${active ? 'active' : ''}`;
+
+    const label = document.createElement('span');
+    label.className = 'channel-row-label';
+    label.textContent = `${isVoice ? '🔊' : '#'} ${c.name}`;
+    row.appendChild(label);
+
+    if (isOwner) {
+      const delBtn = document.createElement('button');
+      delBtn.className = 'channel-delete-btn';
+      delBtn.textContent = '✕';
+      delBtn.title = 'Delete channel';
+      delBtn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        if (!confirm(`Delete #${c.name}?`)) return;
+        Api.channels.remove(c.id)
+          .then(() => {
+            if (isVoice && VoiceChat.isConnectedTo(c.id)) VoiceChat.leaveCurrent();
+            if (!isVoice && AppState.activeChat && AppState.activeChat.id === c.id) {
+              AppState.activeChat = null;
+              $('#empty-state').classList.remove('hidden');
+              $('#chat-panel').classList.add('hidden');
+            }
+            return loadChannels(AppState.activeGroup.id);
+          })
+          .catch((err) => alert(err.message));
+      });
+      row.appendChild(delBtn);
+    }
+
+    row.addEventListener('click', () => {
+      if (isVoice) {
+        if (VoiceChat.isConnectedTo(c.id)) {
+          VoiceChat.leaveCurrent();
+        } else {
+          VoiceChat.joinChannel(c.id, c.name, AppState.activeGroup.id);
+        }
+      } else {
+        Chat.openChannel(c);
+      }
+    });
+
+    return row;
   }
 
   function renderMembers(members) {
@@ -72,17 +183,26 @@ const Groups = (() => {
       row.innerHTML = `<input type="checkbox" value="${f.id}" /> <span>${escapeHtml(f.displayName)}</span>`;
       list.appendChild(row);
     });
-    $('#modal-overlay').classList.remove('hidden');
-    $('#create-group-modal').classList.remove('hidden');
-    $('#add-member-modal').classList.add('hidden');
+    showModal('create-group-modal');
   }
 
   function closeModals() {
     $('#modal-overlay').classList.add('hidden');
+    $('#create-group-modal').classList.add('hidden');
+    $('#add-member-modal').classList.add('hidden');
+    $('#create-channel-modal').classList.add('hidden');
+  }
+
+  function showModal(id) {
+    $('#modal-overlay').classList.remove('hidden');
+    $('#create-group-modal').classList.add('hidden');
+    $('#add-member-modal').classList.add('hidden');
+    $('#create-channel-modal').classList.add('hidden');
+    $(`#${id}`).classList.remove('hidden');
   }
 
   function openAddMemberModal() {
-    if (!AppState.activeChat || AppState.activeChat.type !== 'group') return;
+    if (!AppState.activeGroup) return;
     const list = $('#add-member-friends');
     list.innerHTML = '';
     const addable = AppState.friendsData.friends.filter((f) => !AppState.activeMemberIds.includes(f.id));
@@ -95,19 +215,31 @@ const Groups = (() => {
       row.innerHTML = `<input type="checkbox" value="${f.id}" /> <span>${escapeHtml(f.displayName)}</span>`;
       list.appendChild(row);
     });
-    $('#modal-overlay').classList.remove('hidden');
-    $('#create-group-modal').classList.add('hidden');
-    $('#add-member-modal').classList.remove('hidden');
+    showModal('add-member-modal');
+  }
+
+  function openCreateChannelModal(type) {
+    if (!AppState.activeGroup) return;
+    setCreateChannelType(type || 'text');
+    $('#create-channel-name').value = '';
+    $('#create-channel-error').textContent = '';
+    showModal('create-channel-modal');
+  }
+
+  function setCreateChannelType(type) {
+    createChannelType = type;
+    $('#channel-type-text').classList.toggle('active', type === 'text');
+    $('#channel-type-voice').classList.toggle('active', type === 'voice');
   }
 
   function leaveActiveGroup() {
-    if (!AppState.activeChat || AppState.activeChat.type !== 'group') return;
-    if (!confirm(`Leave "${AppState.activeChat.name}"?`)) return;
-    const groupId = AppState.activeChat.id;
+    if (!AppState.activeGroup) return;
+    if (!confirm(`Leave "${AppState.activeGroup.name}"?`)) return;
+    const groupId = AppState.activeGroup.id;
     Api.groups.leave(groupId)
       .then(() => {
-        VoiceChat.leaveCurrent();
-        VoiceChat.hidePanel();
+        if (VoiceChat.isConnectedToGroup(groupId)) VoiceChat.leaveCurrent();
+        AppState.activeGroup = null;
         AppState.activeChat = null;
         return refresh();
       })
@@ -128,7 +260,14 @@ const Groups = (() => {
       if (!name) return;
       const memberIds = Array.from($('#create-group-friends').querySelectorAll('input:checked')).map((i) => Number(i.value));
       Api.groups.create(name, memberIds)
-        .then(({ group }) => {
+        .then(({ group }) =>
+          // Seed every new group with a default text + voice channel, same as Discord.
+          Promise.all([
+            Api.channels.create(group.id, 'general', 'text'),
+            Api.channels.create(group.id, 'General', 'voice')
+          ]).then(() => group)
+        )
+        .then((group) => {
           closeModals();
           return refresh().then(() => {
             const g = AppState.groupsData.find((x) => x.id === group.id);
@@ -143,7 +282,7 @@ const Groups = (() => {
     $('#add-member-confirm').addEventListener('click', () => {
       const ids = Array.from($('#add-member-friends').querySelectorAll('input:checked')).map((i) => Number(i.value));
       if (ids.length === 0) { closeModals(); return; }
-      const groupId = AppState.activeChat.id;
+      const groupId = AppState.activeGroup.id;
       Promise.all(ids.map((userId) => Api.groups.addMember(groupId, userId)))
         .then(() => {
           closeModals();
@@ -155,9 +294,24 @@ const Groups = (() => {
         .catch((err) => alert(err.message));
     });
 
+    $('#channel-type-text').addEventListener('click', () => setCreateChannelType('text'));
+    $('#channel-type-voice').addEventListener('click', () => setCreateChannelType('voice'));
+    $('#create-channel-cancel').addEventListener('click', closeModals);
+    $('#create-channel-confirm').addEventListener('click', () => {
+      const name = $('#create-channel-name').value.trim();
+      $('#create-channel-error').textContent = '';
+      if (!name) return;
+      Api.channels.create(AppState.activeGroup.id, name, createChannelType)
+        .then(() => {
+          closeModals();
+          return loadChannels(AppState.activeGroup.id);
+        })
+        .catch((err) => { $('#create-channel-error').textContent = err.message; });
+    });
+
     const leaveBtn = $('#group-leave-btn');
     if (leaveBtn) leaveBtn.addEventListener('click', leaveActiveGroup);
   }
 
-  return { refresh, open, initUI };
+  return { refresh, open, initUI, refreshChannelHighlight };
 })();

@@ -91,7 +91,7 @@
       </div>
     </div>
 
-    <!-- Group member list -->
+    <!-- Group view: channel list + member list -->
     <div id="group-panel" class="hidden">
       <div class="group-panel-header">
         <span id="group-panel-title"></span>
@@ -100,7 +100,15 @@
           <button class="btn-icon" id="group-leave-btn" title="Leave group">⎋</button>
         </div>
       </div>
-      <div id="group-members-list"></div>
+
+      <div id="channel-list" class="channel-list"></div>
+
+      <div class="sidebar-divider"></div>
+
+      <div class="member-section">
+        <div class="member-section-header">MEMBERS</div>
+        <div id="group-members-list"></div>
+      </div>
     </div>
 
     <div class="sidebar-user">
@@ -115,31 +123,30 @@
 
   <!-- Chat area -->
   <div class="chat-area">
+    <!-- Voice bar: shown whenever connected to a voice channel in the group currently open -->
+    <div id="voice-panel" class="voice-panel hidden">
+      <div class="voice-panel-top">
+        <span class="voice-panel-label">🔊 Voice — <span id="voice-panel-name"></span></span>
+        <div class="voice-panel-actions">
+          <div id="voice-controls" class="voice-controls hidden">
+            <button class="btn-icon-text" id="voice-mute-btn">🎙️ Mute</button>
+            <button class="btn-icon-text" id="voice-share-btn">🖥️ Share Screen</button>
+            <button class="btn-icon-text active-danger" id="voice-leave-btn">📞 Leave</button>
+          </div>
+        </div>
+      </div>
+      <div id="voice-participants" class="voice-participants"></div>
+      <div id="voice-video-grid" class="voice-video-grid hidden"></div>
+    </div>
+
     <div id="empty-state" class="empty-state">
       <div class="empty-icon">👋</div>
-      <h2>Select a friend or group to start chatting</h2>
+      <h2>Select a friend or channel to start chatting</h2>
     </div>
 
     <div id="chat-panel" class="chat-panel hidden">
       <div class="chat-header">
         <span id="chat-title"></span>
-      </div>
-
-      <!-- Voice channel bar: only shown when a group chat is open -->
-      <div id="voice-panel" class="voice-panel hidden">
-        <div class="voice-panel-top">
-          <span class="voice-panel-label">🔊 Voice — <span id="voice-group-name"></span></span>
-          <div class="voice-panel-actions">
-            <button class="btn-primary btn-small" id="voice-join-btn">Join Voice</button>
-            <div id="voice-controls" class="voice-controls hidden">
-              <button class="btn-icon-text" id="voice-mute-btn">🎙️ Mute</button>
-              <button class="btn-icon-text" id="voice-share-btn">🖥️ Share Screen</button>
-              <button class="btn-icon-text active-danger" id="voice-leave-btn">📞 Leave</button>
-            </div>
-          </div>
-        </div>
-        <div id="voice-participants" class="voice-participants"></div>
-        <div id="voice-video-grid" class="voice-video-grid hidden"></div>
       </div>
 
       <div class="chat-messages" id="chat-messages"></div>
@@ -173,6 +180,22 @@
     <div class="modal-actions">
       <button class="btn-secondary" id="add-member-cancel">Cancel</button>
       <button class="btn-primary" id="add-member-confirm">Add</button>
+    </div>
+  </div>
+
+  <div class="modal hidden" id="create-channel-modal">
+    <h2>Create Channel</h2>
+    <label>Channel Type</label>
+    <div class="channel-type-toggle">
+      <button class="channel-type-btn active" id="channel-type-text">💬 Text</button>
+      <button class="channel-type-btn" id="channel-type-voice">🔊 Voice</button>
+    </div>
+    <label>Channel Name</label>
+    <input type="text" id="create-channel-name" placeholder="new-channel" />
+    <div class="auth-error" id="create-channel-error"></div>
+    <div class="modal-actions">
+      <button class="btn-secondary" id="create-channel-cancel">Cancel</button>
+      <button class="btn-primary" id="create-channel-confirm">Create</button>
     </div>
   </div>
 </div>

@@ -1,5 +1,6 @@
-// The message pane: opening a DM or group, loading history, sending new
-// messages, and reacting to realtime message/typing events from SocketClient.
+// The message pane: opening a DM or text channel, loading history, sending
+// new messages, and reacting to realtime message/typing events from
+// SocketClient.
 const Chat = (() => {
   const { $, escapeHtml, initials, formatTime } = Utils;
 
@@ -7,11 +8,24 @@ const Chat = (() => {
   const typingClearTimers = {};
 
   function openDM(friend) {
+    AppState.activeGroup = null;
     AppState.activeChat = { type: 'dm', id: friend.id, name: friend.displayName, color: friend.avatarColor };
     App.setActiveRail($('#rail-home'));
     $('#sidebar-header').textContent = 'Friends';
-    VoiceChat.hidePanel();
+    VoiceChat.refreshPanelForGroup(null);
     openChatWindow();
+  }
+
+  function openChannel(channel) {
+    AppState.activeChat = {
+      type: 'channel',
+      id: channel.id,
+      name: channel.name,
+      groupId: channel.groupId
+    };
+    if (AppState.socket) AppState.socket.emit('channel:join', channel.id);
+    openChatWindow();
+    Groups.refreshChannelHighlight();
   }
 
   function openChatWindow() {
@@ -28,7 +42,7 @@ const Chat = (() => {
 
   function loadHistory() {
     const chat = AppState.activeChat;
-    const request = chat.type === 'dm' ? Api.messages.dmHistory(chat.id) : Api.messages.groupHistory(chat.id);
+    const request = chat.type === 'dm' ? Api.messages.dmHistory(chat.id) : Api.messages.channelHistory(chat.id);
     request.then((data) => {
       $('#chat-messages').innerHTML = '';
       data.messages.forEach((m) => appendMessage(m));
@@ -79,7 +93,7 @@ const Chat = (() => {
     if (chat.type === 'dm') {
       AppState.socket.emit('dm:send', { recipientId: chat.id, content });
     } else {
-      AppState.socket.emit('group:send', { groupId: chat.id, content });
+      AppState.socket.emit('channel:send', { channelId: chat.id, content });
     }
   }
 
@@ -106,18 +120,18 @@ const Chat = (() => {
     if (!chat) return;
     if (kind === 'dm' && chat.type === 'dm' && (msg.senderId === chat.id || msg.recipientId === chat.id)) {
       appendMessage(msg);
-    } else if (kind === 'group' && chat.type === 'group' && msg.groupId === chat.id) {
+    } else if (kind === 'channel' && chat.type === 'channel' && msg.channelId === chat.id) {
       appendMessage(msg);
     }
   }
 
-  function handleTypingEvent(scope, from, groupId) {
+  function handleTypingEvent(scope, from, channelId) {
     const chat = AppState.activeChat;
     if (!chat) return;
     if (scope === 'dm' && chat.type === 'dm' && from === chat.id) {
-      showTyping(chat.id);
-    } else if (scope === 'group' && chat.type === 'group' && groupId === chat.id) {
-      showTyping(`g${groupId}-${from}`);
+      showTyping(`dm-${from}`);
+    } else if (scope === 'channel' && chat.type === 'channel' && channelId === chat.id) {
+      showTyping(`c${channelId}-${from}`);
     }
   }
 
@@ -134,6 +148,7 @@ const Chat = (() => {
 
   return {
     openDM,
+    openChannel,
     openChatWindow,
     handleIncomingMessage,
     handleTypingEvent,

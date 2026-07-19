@@ -5,9 +5,14 @@ const App = (() => {
 
   function showFriendsHome() {
     setActiveRail($('#rail-home'));
+    AppState.activeGroup = null;
+    AppState.activeChat = null;
     $('#sidebar-header').textContent = 'Friends';
     $('#friends-panel').classList.remove('hidden');
     $('#group-panel').classList.add('hidden');
+    $('#empty-state').classList.remove('hidden');
+    $('#chat-panel').classList.add('hidden');
+    VoiceChat.refreshPanelForGroup(null);
   }
 
   function setActiveRail(el) {
@@ -34,7 +39,6 @@ const App = (() => {
   }
 
   function initVoiceControls() {
-    $('#voice-join-btn').addEventListener('click', () => VoiceChat.joinCurrentGroup());
     $('#voice-leave-btn').addEventListener('click', () => VoiceChat.leaveCurrent());
     $('#voice-mute-btn').addEventListener('click', () => VoiceChat.toggleMute());
     $('#voice-share-btn').addEventListener('click', () => VoiceChat.toggleScreenShare());

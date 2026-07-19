@@ -3,9 +3,10 @@
 // "perfect negotiation" pattern so renegotiation (e.g. starting/stopping a
 // screen share) works cleanly without offer/answer glare.
 //
-// Wired up by app.js via VoiceChat.init(socket, me) once, then
-// VoiceChat.showGroup(groupId, name) / joinCurrentGroup() / leaveCurrent()
-// as the user switches groups and joins/leaves voice.
+// A group can have several voice channels, so everything here is keyed by
+// the voice CHANNEL id (not the group id). Wired up by app.js via
+// VoiceChat.init(socket, me) once, then groups.js calls joinChannel(...)
+// when a voice channel row is clicked in the sidebar.
 
 const VoiceChat = (() => {
   const ICE_SERVERS = [{ urls: 'stun:stun.l.google.com:19302' }];
@@ -13,8 +14,11 @@ const VoiceChat = (() => {
   let socket = null;
   let me = null;
 
-  let currentGroupId = null;   // group whose voice channel UI is currently visible
-  let connectedGroupId = null; // group whose voice channel we're actually connected to
+  let connectedChannelId = null;   // voice channel we're actually connected to
+  let connectedChannelName = null;
+  let connectedGroupId = null;     // which group that channel belongs to
+  let openGroupId = null;          // group currently open in the sidebar (drives panel visibility)
+
   let localMicStream = null;
   let localScreenStream = null;
   let sharingScreen = false;
@@ -82,31 +86,42 @@ const VoiceChat = (() => {
 
     // Reconnect voice cleanly if the socket drops and comes back
     socket.on('disconnect', () => {
+      connectedChannelId = null;
       connectedGroupId = null;
       Object.keys(peers).forEach(teardownPeer);
     });
   }
 
-  // Show the voice panel for the group currently open in chat (doesn't auto-join)
-  function showGroup(groupId, groupName) {
-    currentGroupId = groupId;
-    $('#voice-panel').classList.remove('hidden');
-    $('#voice-group-name').textContent = groupName;
-    const inThisChannel = connectedGroupId === groupId;
-    $('#voice-join-btn').classList.toggle('hidden', inThisChannel);
-    $('#voice-controls').classList.toggle('hidden', !inThisChannel);
-    renderParticipants();
+  // Called whenever the sidebar switches to a different group (or to Friends
+  // home, with groupId = null). Only shows the voice bar when the channel
+  // we're connected to belongs to the group currently open in the sidebar.
+  function refreshPanelForGroup(groupId) {
+    openGroupId = groupId;
+    const panel = $('#voice-panel');
+    if (!panel) return;
+
+    const visible = connectedChannelId && connectedGroupId === groupId;
+    panel.classList.toggle('hidden', !visible);
+    if (visible) {
+      $('#voice-panel-name').textContent = connectedChannelName;
+      $('#voice-controls').classList.remove('hidden');
+      updateMuteButton();
+      updateShareButton();
+      renderParticipants();
+    }
   }
 
-  function hidePanel() {
-    currentGroupId = null;
-    $('#voice-panel').classList.add('hidden');
+  function isConnectedTo(channelId) {
+    return connectedChannelId === channelId;
   }
 
-  async function joinCurrentGroup() {
-    if (!currentGroupId || connectedGroupId === currentGroupId) return;
+  function isConnectedToGroup(groupId) {
+    return connectedChannelId && connectedGroupId === groupId;
+  }
 
-    if (connectedGroupId) await leaveCurrent();
+  async function joinChannel(channelId, channelName, groupId) {
+    if (connectedChannelId === channelId) return;
+    if (connectedChannelId) await leaveCurrent();
 
     try {
       localMicStream = await navigator.mediaDevices.getUserMedia({ audio: true });
@@ -116,20 +131,21 @@ const VoiceChat = (() => {
     }
 
     muted = false;
-    connectedGroupId = currentGroupId;
-    socket.emit('voice:join', { groupId: connectedGroupId });
+    connectedChannelId = channelId;
+    connectedChannelName = channelName;
+    connectedGroupId = groupId;
+    socket.emit('voice:join', { channelId });
 
-    $('#voice-join-btn').classList.add('hidden');
-    $('#voice-controls').classList.remove('hidden');
-    updateMuteButton();
-    renderParticipants();
+    if (typeof Groups !== 'undefined') Groups.refreshChannelHighlight();
+    refreshPanelForGroup(openGroupId);
   }
 
   async function leaveCurrent() {
-    if (!connectedGroupId) return;
+    if (!connectedChannelId) return;
+    const cid = connectedChannelId;
     const gid = connectedGroupId;
 
-    socket.emit('voice:leave', { groupId: gid });
+    socket.emit('voice:leave', { channelId: cid });
     Object.keys(peers).forEach(teardownPeer);
 
     if (localMicStream) {
@@ -142,15 +158,15 @@ const VoiceChat = (() => {
     }
     sharingScreen = false;
     muted = false;
+    connectedChannelId = null;
+    connectedChannelName = null;
     connectedGroupId = null;
 
     clearVideoGrid();
 
-    if (currentGroupId === gid) {
-      $('#voice-join-btn').classList.remove('hidden');
-      $('#voice-controls').classList.add('hidden');
-    }
-    renderParticipants();
+    if (typeof Groups !== 'undefined') Groups.refreshChannelHighlight();
+    refreshPanelForGroup(openGroupId);
+    void gid;
   }
 
   function toggleMute() {
@@ -161,7 +177,7 @@ const VoiceChat = (() => {
   }
 
   async function toggleScreenShare() {
-    if (!connectedGroupId) return;
+    if (!connectedChannelId) return;
     if (sharingScreen) {
       stopScreenShare();
       return;
@@ -180,14 +196,13 @@ const VoiceChat = (() => {
     Object.values(peers).forEach(({ pc }) => pc.addTrack(track, localScreenStream));
 
     sharingScreen = true;
-    socket.emit('voice:screen-share-toggle', { groupId: connectedGroupId, sharing: true });
+    socket.emit('voice:screen-share-toggle', { channelId: connectedChannelId, sharing: true });
     showLocalVideoTile(localScreenStream);
     updateShareButton();
   }
 
   function stopScreenShare() {
     if (!sharingScreen) return;
-    const track = localScreenStream && localScreenStream.getVideoTracks()[0];
 
     Object.values(peers).forEach(({ pc }) => {
       const sender = pc.getSenders().find((s) => s.track && s.track.kind === 'video');
@@ -198,7 +213,7 @@ const VoiceChat = (() => {
     localScreenStream = null;
     sharingScreen = false;
 
-    if (connectedGroupId) socket.emit('voice:screen-share-toggle', { groupId: connectedGroupId, sharing: false });
+    if (connectedChannelId) socket.emit('voice:screen-share-toggle', { channelId: connectedChannelId, sharing: false });
     removeLocalVideoTile();
     updateShareButton();
   }
@@ -279,7 +294,7 @@ const VoiceChat = (() => {
     if (!list) return;
     list.innerHTML = '';
 
-    if (connectedGroupId === currentGroupId && connectedGroupId) {
+    if (connectedChannelId) {
       list.appendChild(participantChip(me.displayName, me.avatarColor, muted, sharingScreen, true));
     }
     Object.values(peers).forEach(({ info }) => {
@@ -399,18 +414,14 @@ const VoiceChat = (() => {
     btn.classList.toggle('active-danger', sharingScreen);
   }
 
-  function isConnectedTo(groupId) {
-    return connectedGroupId === groupId;
-  }
-
   return {
     init,
-    showGroup,
-    hidePanel,
-    joinCurrentGroup,
+    joinChannel,
     leaveCurrent,
     toggleMute,
     toggleScreenShare,
-    isConnectedTo
+    refreshPanelForGroup,
+    isConnectedTo,
+    isConnectedToGroup
   };
 })();
