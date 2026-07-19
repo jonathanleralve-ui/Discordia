@@ -30,6 +30,7 @@ const Chat = (() => {
 
   function openChatWindow() {
     const chat = AppState.activeChat;
+    $('#add-friend-panel').classList.add('hidden');
     $('#empty-state').classList.add('hidden');
     $('#chat-panel').classList.remove('hidden');
     $('#chat-title').textContent = chat.type === 'dm' ? `@${chat.name}` : `# ${chat.name}`;

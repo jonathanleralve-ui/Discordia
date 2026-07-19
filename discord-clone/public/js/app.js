@@ -10,6 +10,7 @@ const App = (() => {
     $('#sidebar-header').textContent = 'Friends';
     $('#friends-panel').classList.remove('hidden');
     $('#group-panel').classList.add('hidden');
+    $('#add-friend-panel').classList.add('hidden');
     $('#empty-state').classList.remove('hidden');
     $('#chat-panel').classList.add('hidden');
     VoiceChat.refreshPanelForGroup(null);

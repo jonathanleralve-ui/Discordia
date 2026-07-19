@@ -128,15 +128,51 @@ const Friends = (() => {
     return row;
   }
 
+  function openAddFriendPanel() {
+    $('#chat-panel').classList.add('hidden');
+    $('#empty-state').classList.add('hidden');
+    $('#add-friend-error').textContent = '';
+    $('#add-friend-input').value = '';
+    $('#add-friend-panel').classList.remove('hidden');
+    $('#add-friend-input').focus();
+  }
+
+  function closeAddFriendPanel() {
+    $('#add-friend-panel').classList.add('hidden');
+    if (AppState.activeChat) {
+      $('#chat-panel').classList.remove('hidden');
+    } else {
+      $('#empty-state').classList.remove('hidden');
+    }
+    $$('.tab-btn').forEach((b) => b.classList.remove('active'));
+    $('.tab-btn[data-tab="online"]').classList.add('active');
+    $$('.tab-panel').forEach((p) => p.classList.add('hidden'));
+    $('#tab-online').classList.remove('hidden');
+  }
+
   function initUI() {
     $$('.tab-btn').forEach((btn) => {
       btn.addEventListener('click', () => {
         $$('.tab-btn').forEach((b) => b.classList.remove('active'));
         btn.classList.add('active');
+
+        if (btn.dataset.tab === 'add') {
+          openAddFriendPanel();
+          return;
+        }
+
+        $('#add-friend-panel').classList.add('hidden');
+        if (AppState.activeChat) {
+          $('#chat-panel').classList.remove('hidden');
+        } else {
+          $('#empty-state').classList.remove('hidden');
+        }
         $$('.tab-panel').forEach((p) => p.classList.add('hidden'));
         $(`#tab-${btn.dataset.tab}`).classList.remove('hidden');
       });
     });
+
+    $('#add-friend-close').addEventListener('click', closeAddFriendPanel);
 
     $('#add-friend-submit').addEventListener('click', () => {
       const username = $('#add-friend-input').value.trim();

@@ -249,17 +249,6 @@ input { font-family: inherit; }
 
 .panel-hint { font-size: 12px; color: var(--text-muted); padding: 6px 4px 10px; }
 
-.add-friend-row { display: flex; gap: 8px; padding: 8px 4px; }
-.add-friend-row input {
-  flex: 1;
-  padding: 9px 10px;
-  border-radius: 4px;
-  border: none;
-  background: var(--bg-darkest);
-  color: var(--text-normal);
-  font-size: 14px;
-}
-
 .friend-row, .member-row {
   display: flex;
   align-items: center;
@@ -497,6 +486,63 @@ input { font-family: inherit; }
   gap: 8px;
 }
 .empty-icon { font-size: 48px; }
+
+.add-friend-panel {
+  flex: 1;
+  min-height: 0;
+  position: relative;
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  padding: 64px 32px;
+  background: linear-gradient(180deg, #232538 0%, var(--bg-mid) 55%);
+  overflow-y: auto;
+}
+
+.add-friend-close {
+  position: absolute;
+  top: 16px;
+  right: 16px;
+}
+
+.add-friend-panel-inner {
+  width: 100%;
+  max-width: 480px;
+  text-align: center;
+}
+
+.add-friend-panel-inner h2 {
+  color: #6fb3ff;
+  font-size: 26px;
+  font-weight: 600;
+  margin-bottom: 8px;
+}
+
+.add-friend-sub {
+  color: var(--text-muted);
+  font-size: 14px;
+  margin-bottom: 24px;
+}
+
+.add-friend-search-row { margin-bottom: 16px; }
+
+.add-friend-search-row input {
+  width: 100%;
+  padding: 14px 16px;
+  border-radius: 6px;
+  border: 1px solid var(--border);
+  background: var(--bg-darkest);
+  color: var(--text-normal);
+  font-size: 15px;
+}
+
+.add-friend-search-row input:focus {
+  outline: none;
+  border-color: var(--blurple);
+}
+
+.add-friend-panel-inner .btn-primary { width: 100%; }
+.add-friend-panel-inner .auth-error { margin-top: 12px; }
 
 .chat-panel { flex: 1; display: flex; flex-direction: column; min-height: 0; }
 

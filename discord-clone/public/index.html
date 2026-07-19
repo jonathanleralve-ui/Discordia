@@ -81,14 +81,6 @@
       <div id="tab-online" class="tab-panel"></div>
       <div id="tab-all" class="tab-panel hidden"></div>
       <div id="tab-pending" class="tab-panel hidden"></div>
-      <div id="tab-add" class="tab-panel hidden">
-        <p class="panel-hint">Add a friend by their exact username.</p>
-        <div class="add-friend-row">
-          <input type="text" id="add-friend-input" placeholder="Enter a username" />
-          <button class="btn-primary btn-small" id="add-friend-submit">Send Request</button>
-        </div>
-        <div class="auth-error" id="add-friend-error"></div>
-      </div>
     </div>
 
     <!-- Group view: channel list + member list -->
@@ -146,6 +138,19 @@
     <div id="empty-state" class="empty-state">
       <div class="empty-icon">👋</div>
       <h2>Select a friend or channel to start chatting</h2>
+    </div>
+
+    <div id="add-friend-panel" class="add-friend-panel hidden">
+      <button class="btn-icon add-friend-close" id="add-friend-close" title="Close">✕</button>
+      <div class="add-friend-panel-inner">
+        <h2>Search for friends</h2>
+        <p class="add-friend-sub">Add a friend by their exact username.</p>
+        <div class="add-friend-search-row">
+          <input type="text" id="add-friend-input" placeholder="Enter a username" />
+        </div>
+        <button class="btn-primary" id="add-friend-submit">Send Friend Request</button>
+        <div class="auth-error" id="add-friend-error"></div>
+      </div>
     </div>
 
     <div id="chat-panel" class="chat-panel hidden">

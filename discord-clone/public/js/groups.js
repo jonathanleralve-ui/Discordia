@@ -35,6 +35,7 @@ const Groups = (() => {
     $('#friends-panel').classList.add('hidden');
     $('#group-panel').classList.remove('hidden');
     $('#group-panel-title').textContent = g.name;
+    $('#add-friend-panel').classList.add('hidden');
     $('#empty-state').classList.remove('hidden');
     $('#chat-panel').classList.add('hidden');
 
