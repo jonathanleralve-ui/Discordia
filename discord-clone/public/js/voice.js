@@ -49,6 +49,11 @@ const VoiceChat = (() => {
       renderParticipants();
     });
 
+    socket.on('voice:peer-mute-update', ({ socketId, muted: peerMuted }) => {
+      if (peers[socketId]) peers[socketId].info.muted = peerMuted;
+      renderParticipants();
+    });
+
     socket.on('voice:signal', async ({ from, data }) => {
       const entry = peers[from];
       if (!entry) return;
@@ -166,7 +171,9 @@ const VoiceChat = (() => {
     if (!localMicStream) return;
     muted = !muted;
     localMicStream.getAudioTracks().forEach((t) => (t.enabled = !muted));
+    if (connectedChannelId) socket.emit('voice:mute-toggle', { channelId: connectedChannelId, muted });
     updateMuteButton();
+    renderParticipants();
   }
 
   const SCREEN_SHARE_CONSTRAINTS = {
@@ -391,7 +398,7 @@ const VoiceChat = (() => {
       list.appendChild(participantTile('self', me.displayName, me.avatarColor, muted, sharingScreen, true));
     }
     Object.entries(peers).forEach(([socketId, { info }]) => {
-      list.appendChild(participantTile(socketId, info.displayName, info.avatarColor, false, info.sharing, false));
+      list.appendChild(participantTile(socketId, info.displayName, info.avatarColor, !!info.muted, info.sharing, false));
     });
 
     if (list.children.length === 0) {

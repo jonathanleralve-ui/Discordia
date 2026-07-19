@@ -64,7 +64,7 @@ function registerVoiceHandlers(io, socket, db) {
       // Tell the joining client who is already in the channel, so it can initiate connections to each
       socket.emit('voice:existing-peers', { peers: voicePeerList(cid) });
 
-      const info = { userId: uid, displayName: user.display_name, avatarColor: user.avatar_color, sharing: false };
+      const info = { userId: uid, displayName: user.display_name, avatarColor: user.avatar_color, sharing: false, muted: false };
       voiceRoom(cid).set(socket.id, info);
       socket.currentVoiceChannel = cid;
       socket.join(`voice:${cid}`);
@@ -93,6 +93,15 @@ function registerVoiceHandlers(io, socket, db) {
     if (!info) return;
     info.sharing = !!sharing;
     io.to(`voice:${cid}`).emit('voice:peer-screen-update', { socketId: socket.id, sharing: info.sharing });
+  });
+
+  socket.on('voice:mute-toggle', ({ channelId, muted }) => {
+    const cid = Number(channelId);
+    const room = voiceRoom(cid);
+    const info = room.get(socket.id);
+    if (!info) return;
+    info.muted = !!muted;
+    io.to(`voice:${cid}`).emit('voice:peer-mute-update', { socketId: socket.id, muted: info.muted });
   });
 }
 
