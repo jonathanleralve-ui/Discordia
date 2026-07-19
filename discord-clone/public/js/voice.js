@@ -416,11 +416,51 @@ const VoiceChat = (() => {
       label.className = 'stream-tile-label';
       label.textContent = `${info.displayName}'s screen`;
       tile.appendChild(label);
+      tile.appendChild(buildExpandButton(tile));
       grid.appendChild(tile);
     }
     const videoEl = tile.querySelector('video');
     videoEl.srcObject = stream;
     grid.classList.remove('hidden');
+  }
+
+  function buildExpandButton(tile) {
+    const btn = document.createElement('button');
+    btn.className = 'stream-expand-btn';
+    btn.type = 'button';
+    btn.title = 'Fullscreen';
+    btn.textContent = '⛶';
+
+    btn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      toggleTileFullscreen(tile, btn);
+    });
+
+    // Keep the icon in sync if the user exits fullscreen via Esc, browser
+    // controls, or by fullscreening a different tile.
+    const syncIcon = () => {
+      const active = document.fullscreenElement === tile || document.webkitFullscreenElement === tile;
+      btn.textContent = active ? '✕' : '⛶';
+      btn.title = active ? 'Exit fullscreen' : 'Fullscreen';
+    };
+    document.addEventListener('fullscreenchange', syncIcon);
+    document.addEventListener('webkitfullscreenchange', syncIcon);
+
+    return btn;
+  }
+
+  function toggleTileFullscreen(tile, btn) {
+    const isActive = document.fullscreenElement === tile || document.webkitFullscreenElement === tile;
+    if (isActive) {
+      if (document.exitFullscreen) document.exitFullscreen();
+      else if (document.webkitExitFullscreen) document.webkitExitFullscreen();
+      return;
+    }
+    if (tile.requestFullscreen) {
+      tile.requestFullscreen().catch(() => { /* user gesture or platform restriction */ });
+    } else if (tile.webkitRequestFullscreen) {
+      tile.webkitRequestFullscreen();
+    }
   }
 
   function removeRemoteVideoTile(socketId) {
@@ -446,6 +486,7 @@ const VoiceChat = (() => {
       label.className = 'stream-tile-label';
       label.textContent = 'You are sharing your screen';
       tile.appendChild(label);
+      tile.appendChild(buildExpandButton(tile));
       grid.appendChild(tile);
     }
     tile.querySelector('video').srcObject = stream;
@@ -484,6 +525,56 @@ const VoiceChat = (() => {
     btn.classList.toggle('active-danger', sharingScreen);
   }
 
+  // ============ RESIZE HANDLE ============
+  // Lets the user drag the boundary between the voice panel and the chat
+  // below it to make the participant/video area taller or shorter. Height
+  // is stored as a CSS custom property on the panel and remembered across
+  // sessions via localStorage.
+
+  const RESIZE_STORAGE_KEY = 'voicePanelHeight';
+  const RESIZE_MIN = 120;
+
+  function initResizeHandle() {
+    const handle = $('#voice-resize-handle');
+    const panel = $('#voice-panel');
+    if (!handle || !panel) return;
+
+    try {
+      const saved = parseInt(localStorage.getItem(RESIZE_STORAGE_KEY), 10);
+      if (saved) panel.style.setProperty('--voice-panel-height', `${saved}px`);
+    } catch (err) { /* localStorage unavailable — ignore */ }
+
+    let dragging = false;
+    let startY = 0;
+    let startHeight = 0;
+
+    handle.addEventListener('mousedown', (e) => {
+      dragging = true;
+      startY = e.clientY;
+      startHeight = panel.getBoundingClientRect().height;
+      handle.classList.add('dragging');
+      document.body.style.userSelect = 'none';
+      e.preventDefault();
+    });
+
+    window.addEventListener('mousemove', (e) => {
+      if (!dragging) return;
+      const maxHeight = window.innerHeight * 0.7;
+      let newHeight = startHeight + (e.clientY - startY);
+      newHeight = Math.min(Math.max(newHeight, RESIZE_MIN), maxHeight);
+      panel.style.setProperty('--voice-panel-height', `${newHeight}px`);
+    });
+
+    window.addEventListener('mouseup', () => {
+      if (!dragging) return;
+      dragging = false;
+      handle.classList.remove('dragging');
+      document.body.style.userSelect = '';
+      const finalHeight = panel.getBoundingClientRect().height;
+      try { localStorage.setItem(RESIZE_STORAGE_KEY, String(Math.round(finalHeight))); } catch (err) { /* ignore */ }
+    });
+  }
+
   return {
     init,
     joinChannel,
@@ -492,6 +583,7 @@ const VoiceChat = (() => {
     toggleScreenShare,
     refreshPanelForGroup,
     isConnectedTo,
-    isConnectedToGroup
+    isConnectedToGroup,
+    initResizeHandle
   };
 })();
