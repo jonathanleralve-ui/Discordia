@@ -711,7 +711,7 @@ input { font-family: inherit; }
   border-radius: 8px;
   overflow: hidden;
   aspect-ratio: 16 / 9;
-  height: min(150px, 20vh);
+  height: var(--stream-tile-height, min(150px, 20vh));
   width: auto;
   max-width: 60vw;
 }

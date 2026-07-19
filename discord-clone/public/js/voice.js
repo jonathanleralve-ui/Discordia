@@ -123,6 +123,7 @@ const VoiceChat = (() => {
     connectedChannelId = channelId;
     connectedChannelName = channelName;
     connectedGroupId = groupId;
+    resetPanelHeight();
     socket.emit('voice:join', { channelId });
 
     startSpeakingDetection('self', localMicStream);
@@ -422,6 +423,8 @@ const VoiceChat = (() => {
     const videoEl = tile.querySelector('video');
     videoEl.srcObject = stream;
     grid.classList.remove('hidden');
+    ensureStreamVisible();
+    updateStreamTileHeight();
   }
 
   function buildExpandButton(tile) {
@@ -491,6 +494,8 @@ const VoiceChat = (() => {
     }
     tile.querySelector('video').srcObject = stream;
     grid.classList.remove('hidden');
+    ensureStreamVisible();
+    updateStreamTileHeight();
   }
 
   function removeLocalVideoTile() {
@@ -527,22 +532,115 @@ const VoiceChat = (() => {
 
   // ============ RESIZE HANDLE ============
   // Lets the user drag the boundary between the voice panel and the chat
-  // below it to make the participant/video area taller or shorter. Height
-  // is stored as a CSS custom property on the panel and remembered across
-  // sessions via localStorage.
+  // below it to make the participant/video area taller or shorter. Height is
+  // stored as a CSS custom property on the panel. The size is intentionally
+  // NOT remembered across sessions: every time a channel is (re)joined the
+  // panel snaps back to the default height (see resetPanelHeight).
 
-  const RESIZE_STORAGE_KEY = 'voicePanelHeight';
-  const RESIZE_MIN = 120;
+  const STREAM_TILE_MIN = 90;   // smallest a screen-share tile is allowed to shrink to
+  const RESIZE_ABSOLUTE_MIN = 150; // fallback floor if layout can't be measured yet
+
+  // Measures the real, currently-rendered pieces of the panel (controls bar,
+  // an avatar tile, the share tile) so the min-height/stream-height math is
+  // based on actual sizes rather than guessed constants that drift out of
+  // sync with the CSS.
+  function getPanelLayoutMetrics(panel) {
+    const top = panel.querySelector('.voice-panel-top');
+    const participants = panel.querySelector('#voice-participants');
+    const grid = panel.querySelector('#voice-video-grid');
+
+    const panelStyles = getComputedStyle(panel);
+    const paddingTop = parseFloat(panelStyles.paddingTop) || 0;
+    const paddingBottom = parseFloat(panelStyles.paddingBottom) || 0;
+
+    const topHeight = top ? top.getBoundingClientRect().height : 0;
+
+    const tile = participants ? participants.querySelector('.voice-tile') : null;
+    const tileHeight = tile ? tile.getBoundingClientRect().height : 0;
+    const participantsMarginBottom = participants
+      ? (parseFloat(getComputedStyle(participants).marginBottom) || 0)
+      : 0;
+
+    const isStreaming = !!(grid && !grid.classList.contains('hidden') && grid.children.length > 0);
+    const gridMarginBottom = grid ? (parseFloat(getComputedStyle(grid).marginBottom) || 0) : 0;
+
+    return { paddingTop, paddingBottom, topHeight, tileHeight, participantsMarginBottom, isStreaming, gridMarginBottom };
+  }
+
+  // Smallest the panel can be dragged to: enough room for the controls bar
+  // plus one full row of avatar tiles, and — while someone is streaming —
+  // enough extra room so the share tile stays visible too.
+  function computeMinHeight(panel) {
+    const m = getPanelLayoutMetrics(panel);
+    if (!m.tileHeight) return RESIZE_ABSOLUTE_MIN;
+
+    let min = m.paddingTop + m.paddingBottom + m.topHeight + m.tileHeight + m.participantsMarginBottom;
+
+    if (m.isStreaming) {
+      min += m.gridMarginBottom + STREAM_TILE_MIN;
+    }
+
+    return Math.max(Math.ceil(min), RESIZE_ABSOLUTE_MIN);
+  }
+
+  // While streaming, grows/shrinks the share tile so it fills whatever extra
+  // room dragging the panel bigger/smaller frees up (or takes away).
+  function updateStreamTileHeight(panel) {
+    panel = panel || $('#voice-panel');
+    if (!panel) return;
+    const grid = $('#voice-video-grid');
+    if (!grid || grid.classList.contains('hidden') || grid.children.length === 0) return;
+
+    const m = getPanelLayoutMetrics(panel);
+    const panelHeight = panel.getBoundingClientRect().height;
+    const reserved = m.paddingTop + m.paddingBottom + m.topHeight + m.tileHeight
+      + m.participantsMarginBottom + m.gridMarginBottom;
+
+    const maxAvailable = window.innerHeight * 0.6;
+    let available = panelHeight - reserved;
+    available = Math.min(Math.max(available, STREAM_TILE_MIN), maxAvailable);
+
+    panel.style.setProperty('--stream-tile-height', `${Math.round(available)}px`);
+  }
+
+  const STREAM_TILE_DEFAULT = 180; // comfortable height a stream tile opens at, no drag needed
+
+  // Called the moment a share starts. If the panel is currently too small to
+  // show the stream at a comfortable size, grow it automatically — the user
+  // shouldn't have to drag the handle just to see what was just shared.
+  // Never shrinks a panel the user already made bigger themselves.
+  function ensureStreamVisible(panel) {
+    panel = panel || $('#voice-panel');
+    if (!panel) return;
+
+    const m = getPanelLayoutMetrics(panel);
+    if (!m.isStreaming) return;
+
+    const needed = m.paddingTop + m.paddingBottom + m.topHeight + m.tileHeight
+      + m.participantsMarginBottom + m.gridMarginBottom + STREAM_TILE_DEFAULT;
+
+    const maxHeight = window.innerHeight * 0.7;
+    const target = Math.min(Math.ceil(needed), maxHeight);
+    const currentHeight = panel.getBoundingClientRect().height;
+
+    if (currentHeight < target) {
+      panel.style.setProperty('--voice-panel-height', `${target}px`);
+    }
+  }
+
+  // Snaps the panel back to its default (CSS-defined) height. Called every
+  // time a voice channel is joined so a previous drag never carries over.
+  function resetPanelHeight() {
+    const panel = $('#voice-panel');
+    if (!panel) return;
+    panel.style.removeProperty('--voice-panel-height');
+    updateStreamTileHeight(panel);
+  }
 
   function initResizeHandle() {
     const handle = $('#voice-resize-handle');
     const panel = $('#voice-panel');
     if (!handle || !panel) return;
-
-    try {
-      const saved = parseInt(localStorage.getItem(RESIZE_STORAGE_KEY), 10);
-      if (saved) panel.style.setProperty('--voice-panel-height', `${saved}px`);
-    } catch (err) { /* localStorage unavailable — ignore */ }
 
     let dragging = false;
     let startY = 0;
@@ -560,9 +658,11 @@ const VoiceChat = (() => {
     window.addEventListener('mousemove', (e) => {
       if (!dragging) return;
       const maxHeight = window.innerHeight * 0.7;
+      const minHeight = computeMinHeight(panel);
       let newHeight = startHeight + (e.clientY - startY);
-      newHeight = Math.min(Math.max(newHeight, RESIZE_MIN), maxHeight);
+      newHeight = Math.min(Math.max(newHeight, minHeight), maxHeight);
       panel.style.setProperty('--voice-panel-height', `${newHeight}px`);
+      updateStreamTileHeight(panel);
     });
 
     window.addEventListener('mouseup', () => {
@@ -570,8 +670,6 @@ const VoiceChat = (() => {
       dragging = false;
       handle.classList.remove('dragging');
       document.body.style.userSelect = '';
-      const finalHeight = panel.getBoundingClientRect().height;
-      try { localStorage.setItem(RESIZE_STORAGE_KEY, String(Math.round(finalHeight))); } catch (err) { /* ignore */ }
     });
   }
 
