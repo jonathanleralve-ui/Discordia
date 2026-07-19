@@ -22,6 +22,7 @@ const Api = (() => {
 
   const friends = {
     list: () => request('/friends'),
+    search: (q) => request(`/friends/search?q=${encodeURIComponent(q)}`),
     sendRequest: (username) =>
       request('/friends/request', { method: 'POST', body: JSON.stringify({ username }) }),
     accept: (friendshipId) => request(`/friends/${friendshipId}/accept`, { method: 'POST' }),

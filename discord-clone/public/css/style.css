@@ -524,7 +524,7 @@ input { font-family: inherit; }
   margin-bottom: 24px;
 }
 
-.add-friend-search-row { margin-bottom: 16px; }
+.add-friend-search-row { margin-bottom: 4px; }
 
 .add-friend-search-row input {
   width: 100%;
@@ -541,7 +541,32 @@ input { font-family: inherit; }
   border-color: var(--blurple);
 }
 
-.add-friend-panel-inner .btn-primary { width: 100%; }
+.add-friend-results {
+  text-align: left;
+  max-height: 320px;
+  overflow-y: auto;
+  margin-top: 12px;
+  border-radius: 6px;
+}
+.add-friend-results:empty { margin-top: 0; }
+
+.search-result-row { cursor: default; }
+.search-result-row.clickable { cursor: pointer; }
+.search-result-row.sending { opacity: 0.6; pointer-events: none; }
+
+.search-result-action {
+  font-size: 12px;
+  font-weight: 700;
+  padding: 5px 10px;
+  border-radius: 4px;
+  white-space: nowrap;
+  border: 1px solid transparent;
+}
+.search-result-action.addable { color: var(--green); border-color: var(--green); }
+.search-result-row.clickable:hover .search-result-action.addable { background: var(--green); color: white; }
+.search-result-action.sent { color: var(--green); }
+.search-result-action.muted { color: var(--text-muted); }
+
 .add-friend-panel-inner .auth-error { margin-top: 12px; }
 
 .chat-panel { flex: 1; display: flex; flex-direction: column; min-height: 0; }

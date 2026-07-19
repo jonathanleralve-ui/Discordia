@@ -144,11 +144,11 @@
       <button class="btn-icon add-friend-close" id="add-friend-close" title="Close">✕</button>
       <div class="add-friend-panel-inner">
         <h2>Search for friends</h2>
-        <p class="add-friend-sub">Add a friend by their exact username.</p>
+        <p class="add-friend-sub">Search the community by username, then click a result to send a friend request.</p>
         <div class="add-friend-search-row">
-          <input type="text" id="add-friend-input" placeholder="Enter a username" />
+          <input type="text" id="add-friend-input" placeholder="Search by username..." autocomplete="off" />
         </div>
-        <button class="btn-primary" id="add-friend-submit">Send Friend Request</button>
+        <div id="add-friend-results" class="add-friend-results"></div>
         <div class="auth-error" id="add-friend-error"></div>
       </div>
     </div>

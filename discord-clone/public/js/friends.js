@@ -128,16 +128,110 @@ const Friends = (() => {
     return row;
   }
 
+  let searchDebounce = null;
+  let searchToken = 0;
+
+  function friendStatusFor(userId) {
+    const data = AppState.friendsData || { friends: [], incoming: [], outgoing: [] };
+    if (data.friends.some((f) => f.id === userId)) return 'friends';
+    if (data.outgoing.some((f) => f.id === userId)) return 'outgoing';
+    if (data.incoming.some((f) => f.id === userId)) return 'incoming';
+    return null;
+  }
+
+  function buildSearchResultRow(u) {
+    const row = document.createElement('div');
+    row.className = 'friend-row search-result-row';
+    row.appendChild(avatarEl(u));
+
+    const meta = document.createElement('div');
+    meta.className = 'friend-meta';
+    meta.innerHTML = `<div class="friend-name">${escapeHtml(u.displayName)}</div><div class="friend-sub">@${escapeHtml(u.username)}</div>`;
+    row.appendChild(meta);
+
+    const action = document.createElement('div');
+    action.className = 'search-result-action';
+
+    const status = friendStatusFor(u.id);
+    if (status === 'friends') {
+      action.textContent = 'Friends';
+      action.classList.add('muted');
+    } else if (status === 'outgoing') {
+      action.textContent = 'Pending';
+      action.classList.add('muted');
+    } else if (status === 'incoming') {
+      action.textContent = 'Respond in Pending';
+      action.classList.add('muted');
+    } else {
+      action.textContent = '+ Add';
+      action.classList.add('addable');
+      row.classList.add('clickable');
+      row.addEventListener('click', () => sendRequestFromSearch(u, row, action));
+    }
+    row.appendChild(action);
+    return row;
+  }
+
+  function sendRequestFromSearch(u, row, action) {
+    row.classList.remove('clickable');
+    row.classList.add('sending');
+    action.textContent = 'Sending...';
+    $('#add-friend-error').textContent = '';
+    Api.friends.sendRequest(u.username)
+      .then(() => {
+        row.classList.remove('sending');
+        action.classList.remove('addable');
+        action.classList.add('sent');
+        action.textContent = '✓ Request Sent';
+        return refresh();
+      })
+      .catch((err) => {
+        row.classList.remove('sending');
+        row.classList.add('clickable');
+        action.textContent = '+ Add';
+        $('#add-friend-error').textContent = err.message;
+      });
+  }
+
+  function renderSearchResults(users) {
+    const el = $('#add-friend-results');
+    el.innerHTML = '';
+    if (users.length === 0) {
+      el.innerHTML = '<div class="empty-list-hint">No matching usernames.</div>';
+      return;
+    }
+    users.forEach((u) => el.appendChild(buildSearchResultRow(u)));
+  }
+
+  function runSearch(query) {
+    const myToken = ++searchToken;
+    if (!query) {
+      $('#add-friend-results').innerHTML = '';
+      return;
+    }
+    Api.friends.search(query)
+      .then((data) => {
+        if (myToken !== searchToken) return; // a newer search superseded this one
+        renderSearchResults(data.users);
+      })
+      .catch(() => {
+        if (myToken !== searchToken) return;
+        $('#add-friend-results').innerHTML = '<div class="empty-list-hint">Search failed, try again.</div>';
+      });
+  }
+
   function openAddFriendPanel() {
     $('#chat-panel').classList.add('hidden');
     $('#empty-state').classList.add('hidden');
     $('#add-friend-error').textContent = '';
     $('#add-friend-input').value = '';
+    $('#add-friend-results').innerHTML = '';
     $('#add-friend-panel').classList.remove('hidden');
     $('#add-friend-input').focus();
   }
 
   function closeAddFriendPanel() {
+    clearTimeout(searchDebounce);
     $('#add-friend-panel').classList.add('hidden');
     if (AppState.activeChat) {
       $('#chat-panel').classList.remove('hidden');
@@ -174,16 +268,11 @@ const Friends = (() => {
 
     $('#add-friend-close').addEventListener('click', closeAddFriendPanel);
 
-    $('#add-friend-submit').addEventListener('click', () => {
-      const username = $('#add-friend-input').value.trim();
+    $('#add-friend-input').addEventListener('input', () => {
+      const query = $('#add-friend-input').value.trim();
       $('#add-friend-error').textContent = '';
-      if (!username) return;
-      Api.friends.sendRequest(username)
-        .then(() => {
-          $('#add-friend-input').value = '';
-          refresh();
-        })
-        .catch((err) => { $('#add-friend-error').textContent = err.message; });
+      clearTimeout(searchDebounce);
+      searchDebounce = setTimeout(() => runSearch(query), 250);
     });
   }
 
