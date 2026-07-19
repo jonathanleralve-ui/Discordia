@@ -161,10 +161,14 @@ const Groups = (() => {
     members.forEach((m) => {
       const row = document.createElement('div');
       row.className = 'member-row';
+      if (m.id === AppState.activeGroup.ownerId) {
+        row.classList.add('owner');
+      }
       row.appendChild(avatarWithStatus(m));
       const meta = document.createElement('div');
       meta.className = 'friend-meta';
-      meta.innerHTML = `<div class="friend-name">${escapeHtml(m.displayName)}${m.id === AppState.me.id ? ' (you)' : ''}</div>`;
+      const ownerLabel = m.id === AppState.activeGroup.ownerId ? ' 👑' : '';
+      meta.innerHTML = `<div class="friend-name">${escapeHtml(m.displayName)}${m.id === AppState.me.id ? ' (you)' : ''}${ownerLabel}</div>`;
       row.appendChild(meta);
       el.appendChild(row);
     });
