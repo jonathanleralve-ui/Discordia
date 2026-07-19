@@ -169,6 +169,32 @@ const VoiceChat = (() => {
     updateMuteButton();
   }
 
+  const SCREEN_SHARE_CONSTRAINTS = {
+    video: {
+      width: { ideal: 1920, max: 1920 },
+      height: { ideal: 1080, max: 1080 },
+      frameRate: { ideal: 30, max: 30 }
+    },
+    audio: false
+  };
+  const SCREEN_SHARE_MAX_BITRATE = 4_000_000; // 4 Mbps — enough for sharp text/UI at 1080p30
+
+  // Screen shares are mostly static text/UI, not fast motion, so bias the
+  // encoder toward resolution over frame rate and give it enough bitrate
+  // headroom that WebRTC's default bandwidth estimate doesn't blur things out.
+  async function applyScreenShareEncoding(sender) {
+    if (!sender) return;
+    try {
+      const params = sender.getParameters();
+      params.encodings = params.encodings && params.encodings.length ? params.encodings : [{}];
+      params.encodings[0].maxBitrate = SCREEN_SHARE_MAX_BITRATE;
+      params.degradationPreference = 'maintain-resolution';
+      await sender.setParameters(params);
+    } catch (err) {
+      console.error('Could not raise screen-share quality', err);
+    }
+  }
+
   async function toggleScreenShare() {
     if (!connectedChannelId) return;
     if (sharingScreen) {
@@ -177,15 +203,16 @@ const VoiceChat = (() => {
     }
 
     try {
-      localScreenStream = await navigator.mediaDevices.getDisplayMedia({ video: true, audio: false });
+      localScreenStream = await navigator.mediaDevices.getDisplayMedia(SCREEN_SHARE_CONSTRAINTS);
     } catch (err) {
       return;
     }
 
     const track = localScreenStream.getVideoTracks()[0];
+    track.contentHint = 'detail';
     track.onended = () => stopScreenShare();
 
-    Object.values(peers).forEach(({ pc }) => pc.addTrack(track, localScreenStream));
+    Object.values(peers).forEach(({ pc }) => applyScreenShareEncoding(pc.addTrack(track, localScreenStream)));
 
     sharingScreen = true;
     socket.emit('voice:screen-share-toggle', { channelId: connectedChannelId, sharing: true });
@@ -227,7 +254,7 @@ const VoiceChat = (() => {
       localMicStream.getTracks().forEach((t) => pc.addTrack(t, localMicStream));
     }
     if (sharingScreen && localScreenStream) {
-      localScreenStream.getTracks().forEach((t) => pc.addTrack(t, localScreenStream));
+      localScreenStream.getTracks().forEach((t) => applyScreenShareEncoding(pc.addTrack(t, localScreenStream)));
     }
 
     pc.onnegotiationneeded = async () => {
