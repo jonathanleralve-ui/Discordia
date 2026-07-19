@@ -177,17 +177,25 @@ const VoiceChat = (() => {
     },
     audio: false
   };
-  const SCREEN_SHARE_MAX_BITRATE = 4_000_000; // 4 Mbps — enough for sharp text/UI at 1080p30
+  const SCREEN_SHARE_MAX_BITRATE = 6_000_000; // 6 Mbps — headroom to sustain 1080p without the encoder needing to shrink it
 
   // Screen shares are mostly static text/UI, not fast motion, so bias the
   // encoder toward resolution over frame rate and give it enough bitrate
   // headroom that WebRTC's default bandwidth estimate doesn't blur things out.
+  //
+  // scaleResolutionDownBy: 1 + degradationPreference: 'maintain-resolution'
+  // together tell WebRTC it is NEVER allowed to shrink the encoded resolution
+  // to cope with bandwidth — it must drop frame rate/quality instead. On a
+  // poor connection this can mean stutter or lag rather than a smaller,
+  // smoother picture; that's the explicit tradeoff of forcing a fixed
+  // resolution instead of letting WebRTC adapt.
   async function applyScreenShareEncoding(sender) {
     if (!sender) return;
     try {
       const params = sender.getParameters();
       params.encodings = params.encodings && params.encodings.length ? params.encodings : [{}];
       params.encodings[0].maxBitrate = SCREEN_SHARE_MAX_BITRATE;
+      params.encodings[0].scaleResolutionDownBy = 1;
       params.degradationPreference = 'maintain-resolution';
       await sender.setParameters(params);
     } catch (err) {
