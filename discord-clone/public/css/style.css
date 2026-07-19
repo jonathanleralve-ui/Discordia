@@ -495,7 +495,6 @@ input { font-family: inherit; }
   align-items: flex-start;
   justify-content: center;
   padding: 64px 32px;
-  background: linear-gradient(180deg, #232538 0%, var(--bg-mid) 55%);
   overflow-y: auto;
 }
 
@@ -512,7 +511,7 @@ input { font-family: inherit; }
 }
 
 .add-friend-panel-inner h2 {
-  color: #6fb3ff;
+  color: #ffffff;
   font-size: 26px;
   font-weight: 600;
   margin-bottom: 8px;
@@ -538,7 +537,7 @@ input { font-family: inherit; }
 
 .add-friend-search-row input:focus {
   outline: none;
-  border-color: var(--blurple);
+  border-color: white;
 }
 
 .add-friend-results {
