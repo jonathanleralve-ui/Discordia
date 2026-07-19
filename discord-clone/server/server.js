@@ -11,6 +11,7 @@ const initSockets = require('./sockets');
 const authRoutes = require('./routes/auth');
 const friendRoutes = require('./routes/friends');
 const groupRoutes = require('./routes/groups');
+const channelRoutes = require('./routes/channels');
 const messageRoutes = require('./routes/messages');
 
 const app = express();
@@ -24,6 +25,7 @@ app.use(express.static(path.join(__dirname, '..', 'public')));
 app.use('/api/auth', authRoutes);
 app.use('/api/friends', friendRoutes);
 app.use('/api/groups', groupRoutes);
+app.use('/api', channelRoutes); // exposes /api/groups/:groupId/channels and /api/channels/:channelId
 app.use('/api/messages', messageRoutes);
 
 app.get('/api/health', (req, res) => res.json({ ok: true }));

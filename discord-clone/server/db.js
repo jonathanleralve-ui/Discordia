@@ -53,18 +53,35 @@ CREATE TABLE IF NOT EXISTS group_members (
   UNIQUE(group_id, user_id)
 );
 
+-- A group ("server") is now made up of channels, same as Discord: several
+-- text channels and several voice channels, organized into categories.
+CREATE TABLE IF NOT EXISTS channels (
+  id SERIAL PRIMARY KEY,
+  group_id INTEGER NOT NULL REFERENCES groups(id) ON DELETE CASCADE,
+  name TEXT NOT NULL,
+  type TEXT NOT NULL DEFAULT 'text', -- text | voice
+  category TEXT NOT NULL DEFAULT 'TEXT CHANNELS',
+  position INTEGER NOT NULL DEFAULT 0,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+CREATE INDEX IF NOT EXISTS idx_channels_group ON channels(group_id);
+
 CREATE TABLE IF NOT EXISTS messages (
   id SERIAL PRIMARY KEY,
   sender_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-  -- exactly one of the two below is set
+  -- exactly one of recipient_id / channel_id is set
   recipient_id INTEGER REFERENCES users(id) ON DELETE CASCADE,
   group_id INTEGER REFERENCES groups(id) ON DELETE CASCADE,
   content TEXT NOT NULL,
   created_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
+-- Messages now belong to a channel rather than directly to a group.
+ALTER TABLE messages ADD COLUMN IF NOT EXISTS channel_id INTEGER REFERENCES channels(id) ON DELETE CASCADE;
+
 CREATE INDEX IF NOT EXISTS idx_messages_dm ON messages(sender_id, recipient_id);
-CREATE INDEX IF NOT EXISTS idx_messages_group ON messages(group_id);
+CREATE INDEX IF NOT EXISTS idx_messages_channel ON messages(channel_id);
 `;
 
 // Postgres (especially in Docker) can take a few seconds to accept

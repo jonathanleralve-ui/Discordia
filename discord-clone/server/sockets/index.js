@@ -26,25 +26,36 @@ function initSockets(io) {
     presence.addSocket(uid, socket.id);
     presence.broadcastStatus(io, uid, 'online').catch((err) => console.error('broadcastStatus error', err));
 
-    // Personal room for DMs, plus a room per group they belong to (for message fan-out)
+    // Personal room for DMs, plus a room per text channel in every group they
+    // belong to (so messages land even if that channel isn't the active one).
     socket.join(`user:${uid}`);
     try {
-      const groups = await db.query('SELECT group_id FROM group_members WHERE user_id = $1', [uid]);
-      groups.rows.forEach((g) => socket.join(`group:${g.group_id}`));
+      const channels = await db.query(
+        `SELECT c.id FROM channels c
+         JOIN group_members gm ON gm.group_id = c.group_id
+         WHERE gm.user_id = $1 AND c.type = 'text'`,
+        [uid]
+      );
+      channels.rows.forEach((c) => socket.join(`channel:${c.id}`));
     } catch (err) {
-      console.error('Error joining group rooms', err);
+      console.error('Error joining channel rooms', err);
     }
 
-    // Explicit join used when opening a group chat, in case membership changed since connect
-    socket.on('group:join', async (groupId) => {
+    // Explicit join used when opening a text channel, in case membership/channels changed since connect
+    socket.on('channel:join', async (channelId) => {
       try {
+        const cid = Number(channelId);
+        const channelResult = await db.query('SELECT * FROM channels WHERE id = $1', [cid]);
+        const channel = channelResult.rows[0];
+        if (!channel) return;
+
         const isMember = await db.query(
           'SELECT 1 FROM group_members WHERE group_id = $1 AND user_id = $2',
-          [Number(groupId), uid]
+          [channel.group_id, uid]
         );
-        if (isMember.rows.length > 0) socket.join(`group:${groupId}`);
+        if (isMember.rows.length > 0) socket.join(`channel:${cid}`);
       } catch (err) {
-        console.error('group:join error', err);
+        console.error('channel:join error', err);
       }
     });
 
@@ -52,8 +63,8 @@ function initSockets(io) {
     registerVoiceHandlers(io, socket, db);
 
     socket.on('disconnect', () => {
-      if (socket.currentVoiceGroup) {
-        leaveVoiceChannel(io, socket, socket.currentVoiceGroup);
+      if (socket.currentVoiceChannel) {
+        leaveVoiceChannel(io, socket, socket.currentVoiceChannel);
       }
 
       const wasLast = presence.removeSocket(uid, socket.id);

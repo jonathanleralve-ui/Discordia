@@ -1,4 +1,4 @@
-// DM + group message sending, and typing indicators.
+// DM + channel message sending, and typing indicators.
 
 function registerMessagingHandlers(io, socket, db) {
   const uid = socket.userId;
@@ -44,15 +44,22 @@ function registerMessagingHandlers(io, socket, db) {
     }
   });
 
-  socket.on('group:send', async ({ groupId, content }) => {
+  socket.on('channel:send', async ({ channelId, content }) => {
     try {
       const text = String(content || '').trim().slice(0, 4000);
       if (!text) return;
-      const gid = Number(groupId);
+      const cid = Number(channelId);
+
+      const channelResult = await db.query('SELECT * FROM channels WHERE id = $1', [cid]);
+      const channel = channelResult.rows[0];
+      if (!channel) {
+        socket.emit('error:message', { error: 'Channel not found' });
+        return;
+      }
 
       const isMember = await db.query(
         'SELECT 1 FROM group_members WHERE group_id = $1 AND user_id = $2',
-        [gid, uid]
+        [channel.group_id, uid]
       );
       if (isMember.rows.length === 0) {
         socket.emit('error:message', { error: 'Not a member of this group' });
@@ -60,8 +67,8 @@ function registerMessagingHandlers(io, socket, db) {
       }
 
       const inserted = await db.query(
-        'INSERT INTO messages (sender_id, group_id, content) VALUES ($1, $2, $3) RETURNING id, created_at',
-        [uid, gid, text]
+        'INSERT INTO messages (sender_id, channel_id, group_id, content) VALUES ($1, $2, $3, $4) RETURNING id, created_at',
+        [uid, cid, channel.group_id, text]
       );
 
       const senderResult = await db.query('SELECT display_name, avatar_color FROM users WHERE id = $1', [uid]);
@@ -74,22 +81,22 @@ function registerMessagingHandlers(io, socket, db) {
         senderId: uid,
         senderName: sender.display_name,
         senderColor: sender.avatar_color,
-        groupId: gid
+        channelId: cid
       };
 
-      io.to(`group:${gid}`).emit('group:message', payload);
+      io.to(`channel:${cid}`).emit('channel:message', payload);
     } catch (err) {
-      console.error('group:send error', err);
+      console.error('channel:send error', err);
       socket.emit('error:message', { error: 'Failed to send message' });
     }
   });
 
   socket.on('typing', ({ scope, id }) => {
-    // scope: 'dm' | 'group', id: recipientId or groupId
+    // scope: 'dm' | 'channel', id: recipientId or channelId
     if (scope === 'dm') {
       io.to(`user:${Number(id)}`).emit('typing', { scope, from: uid });
-    } else if (scope === 'group') {
-      socket.to(`group:${id}`).emit('typing', { scope, from: uid, groupId: Number(id) });
+    } else if (scope === 'channel') {
+      socket.to(`channel:${id}`).emit('typing', { scope, from: uid, channelId: Number(id) });
     }
   });
 }

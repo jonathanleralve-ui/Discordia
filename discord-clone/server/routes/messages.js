@@ -15,7 +15,7 @@ function formatMessage(m, senderMap) {
     senderName: sender ? sender.display_name : 'Unknown',
     senderColor: sender ? sender.avatar_color : '#5865F2',
     recipientId: m.recipient_id,
-    groupId: m.group_id
+    channelId: m.channel_id
   };
 }
 
@@ -58,21 +58,25 @@ router.get('/dm/:userId', async (req, res) => {
   }
 });
 
-// Group chat history
-router.get('/group/:groupId', async (req, res) => {
+// Message history for a single text channel
+router.get('/channel/:channelId', async (req, res) => {
   try {
     const uid = req.user.id;
-    const groupId = Number(req.params.groupId);
+    const channelId = Number(req.params.channelId);
+
+    const channelResult = await db.query('SELECT * FROM channels WHERE id = $1', [channelId]);
+    const channel = channelResult.rows[0];
+    if (!channel) return res.status(404).json({ error: 'Channel not found' });
 
     const memberCheck = await db.query(
       'SELECT 1 FROM group_members WHERE group_id = $1 AND user_id = $2',
-      [groupId, uid]
+      [channel.group_id, uid]
     );
     if (memberCheck.rows.length === 0) return res.status(403).json({ error: 'Not a member of this group' });
 
     const messagesResult = await db.query(
-      'SELECT * FROM messages WHERE group_id = $1 ORDER BY id ASC LIMIT 200',
-      [groupId]
+      'SELECT * FROM messages WHERE channel_id = $1 ORDER BY id ASC LIMIT 200',
+      [channelId]
     );
 
     const senderMap = await buildSenderMap(messagesResult.rows);
