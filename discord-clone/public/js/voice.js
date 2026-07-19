@@ -1,31 +1,24 @@
-// Voice channel + screen share module.
-// Uses a mesh of RTCPeerConnections (one per remote participant) with the
-// "perfect negotiation" pattern so renegotiation (e.g. starting/stopping a
-// screen share) works cleanly without offer/answer glare.
-//
-// A group can have several voice channels, so everything here is keyed by
-// the voice CHANNEL id (not the group id). Wired up by app.js via
-// VoiceChat.init(socket, me) once, then groups.js calls joinChannel(...)
-// when a voice channel row is clicked in the sidebar.
-
 const VoiceChat = (() => {
   const ICE_SERVERS = [{ urls: 'stun:stun.l.google.com:19302' }];
+
+  const SPEAKING_THRESHOLD = 0.02; // RMS volume above this counts as "talking"
+  const SPEAKING_HOLD_MS = 350;    // keep ring lit briefly between words
 
   let socket = null;
   let me = null;
 
-  let connectedChannelId = null;   // voice channel we're actually connected to
+  let connectedChannelId = null;
   let connectedChannelName = null;
-  let connectedGroupId = null;     // which group that channel belongs to
-  let openGroupId = null;          // group currently open in the sidebar (drives panel visibility)
+  let connectedGroupId = null;
+  let openGroupId = null;
 
   let localMicStream = null;
   let localScreenStream = null;
   let sharingScreen = false;
   let muted = false;
 
-  // socketId -> { pc, polite, makingOffer, ignoreOffer, info: {userId, displayName, avatarColor, sharing}, videoEl }
   const peers = {};
+  const speakingDetectors = {}; // key ('self' or socketId) -> { audioCtx, source, rafId }
 
   function $(sel) { return document.querySelector(sel); }
 
@@ -84,17 +77,14 @@ const VoiceChat = (() => {
       }
     });
 
-    // Reconnect voice cleanly if the socket drops and comes back
     socket.on('disconnect', () => {
       connectedChannelId = null;
       connectedGroupId = null;
       Object.keys(peers).forEach(teardownPeer);
+      stopSpeakingDetection('self');
     });
   }
 
-  // Called whenever the sidebar switches to a different group (or to Friends
-  // home, with groupId = null). Only shows the voice bar when the channel
-  // we're connected to belongs to the group currently open in the sidebar.
   function refreshPanelForGroup(groupId) {
     openGroupId = groupId;
     const panel = $('#voice-panel');
@@ -103,7 +93,6 @@ const VoiceChat = (() => {
     const visible = connectedChannelId && connectedGroupId === groupId;
     panel.classList.toggle('hidden', !visible);
     if (visible) {
-      $('#voice-panel-name').textContent = connectedChannelName;
       $('#voice-controls').classList.remove('hidden');
       updateMuteButton();
       updateShareButton();
@@ -136,6 +125,8 @@ const VoiceChat = (() => {
     connectedGroupId = groupId;
     socket.emit('voice:join', { channelId });
 
+    startSpeakingDetection('self', localMicStream);
+
     if (typeof Groups !== 'undefined') Groups.refreshChannelHighlight();
     refreshPanelForGroup(openGroupId);
   }
@@ -147,6 +138,7 @@ const VoiceChat = (() => {
 
     socket.emit('voice:leave', { channelId: cid });
     Object.keys(peers).forEach(teardownPeer);
+    stopSpeakingDetection('self');
 
     if (localMicStream) {
       localMicStream.getTracks().forEach((t) => t.stop());
@@ -186,12 +178,11 @@ const VoiceChat = (() => {
     try {
       localScreenStream = await navigator.mediaDevices.getDisplayMedia({ video: true, audio: false });
     } catch (err) {
-      // user cancelled the picker, or it's unsupported
       return;
     }
 
     const track = localScreenStream.getVideoTracks()[0];
-    track.onended = () => stopScreenShare(); // user clicked "Stop sharing" in the browser's own UI
+    track.onended = () => stopScreenShare();
 
     Object.values(peers).forEach(({ pc }) => pc.addTrack(track, localScreenStream));
 
@@ -199,6 +190,7 @@ const VoiceChat = (() => {
     socket.emit('voice:screen-share-toggle', { channelId: connectedChannelId, sharing: true });
     showLocalVideoTile(localScreenStream);
     updateShareButton();
+    renderParticipants();
   }
 
   function stopScreenShare() {
@@ -216,6 +208,7 @@ const VoiceChat = (() => {
     if (connectedChannelId) socket.emit('voice:screen-share-toggle', { channelId: connectedChannelId, sharing: false });
     removeLocalVideoTile();
     updateShareButton();
+    renderParticipants();
   }
 
   // ============ INTERNAL: PEER CONNECTIONS ============
@@ -223,7 +216,7 @@ const VoiceChat = (() => {
   function connectToPeer(socketId, info, isInitiator) {
     if (peers[socketId]) return;
 
-    const polite = socket.id > socketId; // consistent tie-break: higher id defers on glare
+    const polite = socket.id > socketId;
 
     const pc = new RTCPeerConnection({ iceServers: ICE_SERVERS });
     const entry = { pc, polite, makingOffer: false, ignoreOffer: false, info: { ...info }, videoEl: null };
@@ -261,7 +254,9 @@ const VoiceChat = (() => {
           audioEl.autoplay = true;
           document.body.appendChild(audioEl);
         }
-        audioEl.srcObject = event.streams[0] || new MediaStream([event.track]);
+        const stream = event.streams[0] || new MediaStream([event.track]);
+        audioEl.srcObject = stream;
+        startSpeakingDetection(socketId, stream);
       } else if (event.track.kind === 'video') {
         showRemoteVideoTile(socketId, entry.info, event.streams[0] || new MediaStream([event.track]));
       }
@@ -270,9 +265,6 @@ const VoiceChat = (() => {
     pc.onconnectionstatechange = () => {
       if (['failed', 'closed'].includes(pc.connectionState)) teardownPeer(socketId);
     };
-
-    // isInitiator is informational only here — onnegotiationneeded handles offer creation
-    // for whichever side adds tracks first, per the perfect-negotiation pattern.
   }
 
   function teardownPeer(socketId) {
@@ -284,7 +276,72 @@ const VoiceChat = (() => {
     const audioEl = document.getElementById(`voice-audio-${socketId}`);
     if (audioEl) audioEl.remove();
 
+    stopSpeakingDetection(socketId);
     removeRemoteVideoTile(socketId);
+  }
+
+  // ============ INTERNAL: SPEAKING DETECTION ============
+
+  function startSpeakingDetection(key, stream) {
+    stopSpeakingDetection(key);
+    if (!stream || stream.getAudioTracks().length === 0) return;
+
+    try {
+      const AudioCtx = window.AudioContext || window.webkitAudioContext;
+      const audioCtx = new AudioCtx();
+      const source = audioCtx.createMediaStreamSource(stream);
+      const analyser = audioCtx.createAnalyser();
+      analyser.fftSize = 512;
+      analyser.smoothingTimeConstant = 0.4;
+      source.connect(analyser);
+
+      const data = new Uint8Array(analyser.frequencyBinCount);
+      let lastAboveThresholdAt = 0;
+      let isSpeaking = false;
+
+      const detector = { audioCtx, source, rafId: null };
+      speakingDetectors[key] = detector;
+
+      function tick() {
+        if (!speakingDetectors[key]) return; // stopped
+        analyser.getByteTimeDomainData(data);
+        let sumSquares = 0;
+        for (let i = 0; i < data.length; i++) {
+          const v = (data[i] - 128) / 128;
+          sumSquares += v * v;
+        }
+        const rms = Math.sqrt(sumSquares / data.length);
+        const now = performance.now();
+        if (rms > SPEAKING_THRESHOLD) lastAboveThresholdAt = now;
+
+        const nowSpeaking = now - lastAboveThresholdAt < SPEAKING_HOLD_MS;
+        if (nowSpeaking !== isSpeaking) {
+          isSpeaking = nowSpeaking;
+          setSpeakingClass(key, isSpeaking);
+        }
+        detector.rafId = requestAnimationFrame(tick);
+      }
+      tick();
+    } catch (err) {
+      console.error('speaking detection failed to start', err);
+    }
+  }
+
+  function stopSpeakingDetection(key) {
+    const d = speakingDetectors[key];
+    if (!d) return;
+    if (d.rafId) cancelAnimationFrame(d.rafId);
+    try { d.source.disconnect(); } catch (e) { /* noop */ }
+    try { d.audioCtx.close(); } catch (e) { /* noop */ }
+    delete speakingDetectors[key];
+    setSpeakingClass(key, false);
+  }
+
+  function setSpeakingClass(key, isSpeaking) {
+    const tile = document.querySelector(`[data-speaker="${CSS.escape(String(key))}"]`);
+    if (!tile) return;
+    const ring = tile.querySelector('.avatar-ring');
+    if (ring) ring.classList.toggle('speaking', isSpeaking);
   }
 
   // ============ INTERNAL: UI ============
@@ -295,10 +352,10 @@ const VoiceChat = (() => {
     list.innerHTML = '';
 
     if (connectedChannelId) {
-      list.appendChild(participantChip(me.displayName, me.avatarColor, muted, sharingScreen, true));
+      list.appendChild(participantTile('self', me.displayName, me.avatarColor, muted, sharingScreen, true));
     }
-    Object.values(peers).forEach(({ info }) => {
-      list.appendChild(participantChip(info.displayName, info.avatarColor, false, info.sharing, false));
+    Object.entries(peers).forEach(([socketId, { info }]) => {
+      list.appendChild(participantTile(socketId, info.displayName, info.avatarColor, false, info.sharing, false));
     });
 
     if (list.children.length === 0) {
@@ -306,30 +363,41 @@ const VoiceChat = (() => {
     }
   }
 
-  function participantChip(name, color, isMuted, isSharing, isSelf) {
-    const chip = document.createElement('div');
-    chip.className = 'voice-chip';
-    const av = document.createElement('div');
-    av.className = 'avatar';
-    av.style.background = color || '#5865F2';
-    av.textContent = (name || '?').trim().charAt(0).toUpperCase();
-    chip.appendChild(av);
-    const label = document.createElement('span');
-    label.textContent = name + (isSelf ? ' (you)' : '');
-    chip.appendChild(label);
+  function participantTile(key, name, color, isMuted, isSharing, isSelf) {
+    const tile = document.createElement('div');
+    tile.className = 'voice-tile';
+    tile.dataset.speaker = key;
+
+    const ring = document.createElement('div');
+    ring.className = 'avatar-ring';
+    ring.style.setProperty('--ring-color', color || '#5865F2');
+
+    const avatar = document.createElement('div');
+    avatar.className = 'avatar';
+    avatar.style.background = color || '#5865F2';
+    avatar.textContent = (name || '?').trim().charAt(0).toUpperCase();
+    ring.appendChild(avatar);
+
     if (isMuted) {
-      const m = document.createElement('span');
-      m.className = 'voice-chip-icon';
-      m.textContent = '🔇';
-      chip.appendChild(m);
+      const badge = document.createElement('div');
+      badge.className = 'tile-badge muted-badge';
+      badge.textContent = '🔇';
+      ring.appendChild(badge);
     }
     if (isSharing) {
-      const s = document.createElement('span');
-      s.className = 'voice-chip-icon';
-      s.textContent = '🖥️';
-      chip.appendChild(s);
+      const badge = document.createElement('div');
+      badge.className = 'tile-badge share-badge';
+      badge.textContent = '🖥️';
+      ring.appendChild(badge);
     }
-    return chip;
+
+    const label = document.createElement('div');
+    label.className = 'voice-tile-name';
+    label.textContent = name + (isSelf ? ' (you)' : '');
+
+    tile.appendChild(ring);
+    tile.appendChild(label);
+    return tile;
   }
 
   function showRemoteVideoTile(socketId, info, stream) {
@@ -338,14 +406,14 @@ const VoiceChat = (() => {
     let tile = document.getElementById(`voice-tile-${socketId}`);
     if (!tile) {
       tile = document.createElement('div');
-      tile.className = 'voice-tile';
+      tile.className = 'stream-tile';
       tile.id = `voice-tile-${socketId}`;
       const video = document.createElement('video');
       video.autoplay = true;
       video.playsInline = true;
       tile.appendChild(video);
       const label = document.createElement('div');
-      label.className = 'voice-tile-label';
+      label.className = 'stream-tile-label';
       label.textContent = `${info.displayName}'s screen`;
       tile.appendChild(label);
       grid.appendChild(tile);
@@ -367,7 +435,7 @@ const VoiceChat = (() => {
     let tile = document.getElementById('voice-tile-local');
     if (!tile) {
       tile = document.createElement('div');
-      tile.className = 'voice-tile';
+      tile.className = 'stream-tile';
       tile.id = 'voice-tile-local';
       const video = document.createElement('video');
       video.autoplay = true;
@@ -375,7 +443,7 @@ const VoiceChat = (() => {
       video.muted = true;
       tile.appendChild(video);
       const label = document.createElement('div');
-      label.className = 'voice-tile-label';
+      label.className = 'stream-tile-label';
       label.textContent = 'You are sharing your screen';
       tile.appendChild(label);
       grid.appendChild(tile);
@@ -403,14 +471,16 @@ const VoiceChat = (() => {
   function updateMuteButton() {
     const btn = $('#voice-mute-btn');
     if (!btn) return;
-    btn.textContent = muted ? '🔇 Unmute' : '🎙️ Mute';
+    btn.textContent = muted ? '🔇' : '🎙️';
+    btn.title = muted ? 'Unmute' : 'Mute';
     btn.classList.toggle('active-danger', muted);
   }
 
   function updateShareButton() {
     const btn = $('#voice-share-btn');
     if (!btn) return;
-    btn.textContent = sharingScreen ? '🛑 Stop Sharing' : '🖥️ Share Screen';
+    btn.textContent = sharingScreen ? '🛑' : '🖥️';
+    btn.title = sharingScreen ? 'Stop Sharing' : 'Share Screen';
     btn.classList.toggle('active-danger', sharingScreen);
   }
 

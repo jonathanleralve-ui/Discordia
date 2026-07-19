@@ -125,18 +125,17 @@
   <div class="chat-area">
     <!-- Voice bar: shown whenever connected to a voice channel in the group currently open -->
     <div id="voice-panel" class="voice-panel hidden">
+      <div id="voice-participants" class="voice-participants"></div>
+
       <div class="voice-panel-top">
-        <span class="voice-panel-label">🔊 Voice — <span id="voice-panel-name"></span></span>
-        <div class="voice-panel-actions">
-          <div id="voice-controls" class="voice-controls hidden">
-            <button class="btn-icon-text" id="voice-mute-btn">🎙️ Mute</button>
-            <button class="btn-icon-text" id="voice-share-btn">🖥️ Share Screen</button>
-            <button class="btn-icon-text active-danger" id="voice-leave-btn">📞 Leave</button>
-          </div>
+        <div id="voice-controls" class="voice-controls hidden">
+          <button class="btn-icon-round" id="voice-share-btn" title="Share Screen">🖥️</button>
+          <button class="btn-icon-round" id="voice-cam-btn" title="Camera">📹</button>
+          <button class="btn-leave" id="voice-leave-btn">LEAVE CALL</button>
+          <button class="btn-icon-round" id="voice-mute-btn" title="Mute">🎙️</button>
+          <button class="btn-icon-round" id="voice-settings-btn" title="Settings">⚙️</button>
         </div>
       </div>
-      <div id="voice-participants" class="voice-participants"></div>
-      <div id="voice-video-grid" class="voice-video-grid hidden"></div>
     </div>
 
     <div id="empty-state" class="empty-state">
