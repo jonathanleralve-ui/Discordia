@@ -546,7 +546,12 @@ const VoiceChat = (() => {
 
   function updateGridVisibility() {
     const grid = $('#voice-video-grid');
-    if (grid) grid.classList.toggle('hidden', grid.children.length === 0);
+    if (!grid) return;
+    const empty = grid.children.length === 0;
+    grid.classList.toggle('hidden', empty);
+    // No streams left visible — undo any auto-grow/drag sizing that was only
+    // there to accommodate the stream tile, back to the default panel size.
+    if (empty) resetPanelHeight();
   }
 
   function updateMuteButton() {
