@@ -403,6 +403,7 @@ input { font-family: inherit; }
   color: var(--text-muted);
   transition: background 0.15s ease, color 0.15s ease;
   margin-left: 4px;
+  position: relative;
 }
 .channel-row:hover { background: var(--bg-light); color: var(--text-normal); }
 .channel-row.active { background: var(--blurple); color: white; font-weight: 600; }
@@ -414,22 +415,69 @@ input { font-family: inherit; }
   white-space: nowrap;
   font-size: 14px;
   font-weight: 500;
+  flex: 1;
 }
 
-.channel-delete-btn {
+.channel-actions {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  position: relative;
+  flex-shrink: 0;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.15s ease;
+}
+.channel-row:hover .channel-actions,
+.channel-actions.open {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+.channel-menu-btn {
   background: transparent;
   color: var(--text-muted);
-  font-size: 11px;
+  font-size: 16px;
   width: 20px;
   height: 20px;
   border-radius: 4px;
-  flex-shrink: 0;
-  display: none;
+  display: flex;
   align-items: center;
   justify-content: center;
+  line-height: 1;
 }
-.channel-row:hover .channel-delete-btn { display: flex; }
-.channel-delete-btn:hover { background: var(--red); color: white; }
+.channel-menu-btn:hover { background: var(--bg-lighter); color: var(--text-bright); }
+
+.channel-menu {
+  position: absolute;
+  right: 0;
+  top: calc(100% + 4px);
+  background: var(--bg-darkest);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  min-width: 108px;
+  box-shadow: 0 8px 24px rgba(0,0,0,0.35);
+  padding: 4px;
+  z-index: 20;
+  display: none;
+}
+.channel-actions.open .channel-menu { display: flex; flex-direction: column; }
+
+.channel-menu-item {
+  background: transparent;
+  color: var(--text-normal);
+  padding: 8px 10px;
+  border-radius: 4px;
+  text-align: left;
+  font-size: 13px;
+}
+.channel-menu-item:hover { background: var(--bg-light); }
+.channel-menu-item:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+.channel-menu-item.danger { color: var(--red); }
+.channel-menu-item.danger:hover { background: rgba(242, 63, 67, 0.15); }
 
 .sidebar-divider {
   height: 1px;

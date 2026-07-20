@@ -82,7 +82,33 @@ router.post('/groups/:groupId/channels', async (req, res) => {
   }
 });
 
-// Delete a channel — group owner only, to avoid members deleting each other's channels
+// Rename a channel — any group member can do it
+router.patch('/channels/:channelId', async (req, res) => {
+  try {
+    const uid = req.user.id;
+    const channelId = Number(req.params.channelId);
+
+    const channelResult = await db.query('SELECT * FROM channels WHERE id = $1', [channelId]);
+    const channel = channelResult.rows[0];
+    if (!channel) return res.status(404).json({ error: 'Channel not found' });
+
+    if (!(await isGroupMember(channel.group_id, uid))) {
+      return res.status(403).json({ error: 'Only group members can rename channels' });
+    }
+
+    const { name } = req.body || {};
+    const cleanName = String(name || '').trim().toLowerCase().replace(/\s+/g, '-').slice(0, 50);
+    if (!cleanName) return res.status(400).json({ error: 'Channel name is required' });
+
+    const updated = await db.query('UPDATE channels SET name = $2 WHERE id = $1 RETURNING *', [channelId, cleanName]);
+    res.json({ channel: formatChannel(updated.rows[0]) });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Something went wrong, please try again' });
+  }
+});
+
+// Delete a channel — any group member can do it
 router.delete('/channels/:channelId', async (req, res) => {
   try {
     const uid = req.user.id;
@@ -92,10 +118,8 @@ router.delete('/channels/:channelId', async (req, res) => {
     const channel = channelResult.rows[0];
     if (!channel) return res.status(404).json({ error: 'Channel not found' });
 
-    const groupResult = await db.query('SELECT * FROM groups WHERE id = $1', [channel.group_id]);
-    const group = groupResult.rows[0];
-    if (!group || group.owner_id !== uid) {
-      return res.status(403).json({ error: 'Only the group owner can delete channels' });
+    if (!(await isGroupMember(channel.group_id, uid))) {
+      return res.status(403).json({ error: 'Only group members can delete channels' });
     }
 
     await db.query('DELETE FROM channels WHERE id = $1', [channelId]);

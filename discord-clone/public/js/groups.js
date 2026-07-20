@@ -118,30 +118,67 @@ const Groups = (() => {
     label.textContent = `${isVoice ? '🔊' : '#'} ${c.name}`;
     row.appendChild(label);
 
-    if (isOwner) {
-      const delBtn = document.createElement('button');
-      delBtn.className = 'channel-delete-btn';
-      delBtn.textContent = '✕';
-      delBtn.title = 'Delete channel';
-      delBtn.addEventListener('click', (e) => {
-        e.stopPropagation();
-        if (!confirm(`Delete #${c.name}?`)) return;
-        Api.channels.remove(c.id)
-          .then(() => {
-            if (isVoice && VoiceChat.isConnectedTo(c.id)) VoiceChat.leaveCurrent();
-            if (!isVoice && AppState.activeChat && AppState.activeChat.id === c.id) {
-              AppState.activeChat = null;
-              $('#empty-state').classList.remove('hidden');
-              $('#chat-panel').classList.add('hidden');
-            }
-            return loadChannels(AppState.activeGroup.id);
-          })
-          .catch((err) => alert(err.message));
-      });
-      row.appendChild(delBtn);
-    }
+    const actionsWrap = document.createElement('div');
+    actionsWrap.className = 'channel-actions';
 
-    row.addEventListener('click', () => {
+    const menuBtn = document.createElement('button');
+    menuBtn.className = 'channel-menu-btn';
+    menuBtn.textContent = '⋯';
+    menuBtn.title = 'Channel options';
+    menuBtn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      actionsWrap.classList.toggle('open');
+    });
+
+    const menu = document.createElement('div');
+    menu.className = 'channel-menu';
+    menu.addEventListener('click', (e) => e.stopPropagation());
+
+    const renameBtn = document.createElement('button');
+    renameBtn.className = 'channel-menu-item';
+    renameBtn.textContent = 'Rename';
+    renameBtn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      actionsWrap.classList.remove('open');
+      const nextName = window.prompt(`Rename #${c.name}`, c.name);
+      if (!nextName) return;
+      const cleanName = String(nextName).trim().toLowerCase().replace(/\s+/g, '-').slice(0, 50);
+      if (!cleanName || cleanName === c.name) return;
+      Api.channels.rename(c.id, cleanName)
+        .then(() => loadChannels(AppState.activeGroup.id))
+        .catch((err) => alert(err.message));
+    });
+
+    const deleteBtn = document.createElement('button');
+    deleteBtn.className = 'channel-menu-item danger';
+    deleteBtn.textContent = 'Delete';
+    deleteBtn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      actionsWrap.classList.remove('open');
+      if (!confirm(`Delete #${c.name}?`)) return;
+      Api.channels.remove(c.id)
+        .then(() => {
+          if (isVoice && VoiceChat.isConnectedTo(c.id)) VoiceChat.leaveCurrent();
+          if (!isVoice && AppState.activeChat && AppState.activeChat.id === c.id) {
+            AppState.activeChat = null;
+            $('#empty-state').classList.remove('hidden');
+            $('#chat-panel').classList.add('hidden');
+          }
+          return loadChannels(AppState.activeGroup.id);
+        })
+        .catch((err) => alert(err.message));
+    });
+
+    menu.appendChild(renameBtn);
+    menu.appendChild(deleteBtn);
+    actionsWrap.appendChild(menuBtn);
+    actionsWrap.appendChild(menu);
+    row.appendChild(actionsWrap);
+
+    row.addEventListener('click', (e) => {
+      if (e.target.closest('.channel-actions') || e.target.closest('.channel-menu')) return;
+      const actionsWrap = row.querySelector('.channel-actions');
+      if (actionsWrap) actionsWrap.classList.remove('open');
       if (isVoice) {
         if (VoiceChat.isConnectedTo(c.id)) {
           VoiceChat.leaveCurrent();

@@ -50,6 +50,8 @@ const Api = (() => {
     list: (groupId) => request(`/groups/${groupId}/channels`),
     create: (groupId, name, type) =>
       request(`/groups/${groupId}/channels`, { method: 'POST', body: JSON.stringify({ name, type }) }),
+    rename: (channelId, name) =>
+      request(`/channels/${channelId}`, { method: 'PATCH', body: JSON.stringify({ name }) }),
     remove: (channelId) => request(`/channels/${channelId}`, { method: 'DELETE' })
   };
 
