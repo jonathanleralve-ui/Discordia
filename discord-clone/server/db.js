@@ -24,9 +24,12 @@ CREATE TABLE IF NOT EXISTS users (
   display_name TEXT NOT NULL,
   password_hash TEXT NOT NULL,
   avatar_color TEXT NOT NULL DEFAULT '#5865F2',
+  avatar_url TEXT,
   status TEXT NOT NULL DEFAULT 'offline',
   created_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
+
+ALTER TABLE users ADD COLUMN IF NOT EXISTS avatar_url TEXT;
 
 CREATE TABLE IF NOT EXISTS friendships (
   id SERIAL PRIMARY KEY,

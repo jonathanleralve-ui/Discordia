@@ -18,6 +18,7 @@ function publicUser(u) {
     username: u.username,
     displayName: u.display_name,
     avatarColor: u.avatar_color,
+    avatarUrl: u.avatar_url,
     status: u.status
   };
 }
@@ -98,7 +99,7 @@ router.get('/me', auth, async (req, res) => {
 
 router.patch('/me', auth, async (req, res) => {
   try {
-    const { displayName, avatarColor } = req.body || {};
+    const { displayName, avatarColor, avatarUrl } = req.body || {};
     const updates = [];
     const values = [];
     let idx = 1;
@@ -117,6 +118,11 @@ router.patch('/me', auth, async (req, res) => {
       }
       updates.push(`avatar_color = $${idx++}`);
       values.push(avatarColor);
+    }
+
+    if (avatarUrl !== undefined) {
+      updates.push(`avatar_url = $${idx++}`);
+      values.push(avatarUrl || null);
     }
 
     if (updates.length === 0) {

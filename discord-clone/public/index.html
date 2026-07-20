@@ -158,7 +158,13 @@
       <button class="btn-icon add-friend-close" id="edit-profile-close" title="Close">✕</button>
       <div class="profile-panel-inner">
         <h2>Edit Profile</h2>
-        <p class="profile-panel-sub">Update your name and avatar color.</p>
+        <p class="profile-panel-sub">Update your name, photo, and avatar color.</p>
+        <div class="profile-photo-section">
+          <div class="profile-photo-preview" id="edit-profile-photo-preview"></div>
+          <input type="file" id="edit-profile-file" accept="image/*" class="hidden" />
+          <button class="btn-secondary" id="edit-profile-upload-btn" type="button">Upload Image</button>
+          <button class="btn-secondary hidden" id="edit-profile-remove-photo-btn" type="button">Remove</button>
+        </div>
         <label>Display Name</label>
         <input type="text" id="edit-profile-displayname" maxlength="32" placeholder="How others see you" />
         <label>Avatar Color</label>

@@ -28,7 +28,15 @@ const App = (() => {
     $('#me-name').textContent = AppState.me.displayName;
     const meAvatar = $('#me-avatar');
     meAvatar.style.background = AppState.me.avatarColor;
-    meAvatar.textContent = initials(AppState.me.displayName);
+    if (AppState.me.avatarUrl) {
+      meAvatar.innerHTML = '';
+      const img = document.createElement('img');
+      img.src = AppState.me.avatarUrl;
+      img.alt = AppState.me.displayName;
+      meAvatar.appendChild(img);
+    } else {
+      meAvatar.textContent = initials(AppState.me.displayName);
+    }
 
     SocketClient.connect();
     VoiceChat.init(AppState.socket, AppState.me);

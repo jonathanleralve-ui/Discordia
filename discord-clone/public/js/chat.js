@@ -2,7 +2,7 @@
 // new messages, and reacting to realtime message/typing events from
 // SocketClient.
 const Chat = (() => {
-  const { $, escapeHtml, initials, formatTime } = Utils;
+  const { $, escapeHtml, initials, formatTime, avatarEl } = Utils;
 
   let typingTimeout = null;
   const typingClearTimers = {};
@@ -67,10 +67,11 @@ const Chat = (() => {
     const row = document.createElement('div');
     row.className = `message-row ${m.senderId === AppState.me.id ? 'own' : ''}`;
 
-    const av = document.createElement('div');
-    av.className = 'avatar';
-    av.style.background = m.senderColor || '#5865F2';
-    av.textContent = initials(m.senderName);
+    const av = avatarEl({
+      displayName: m.senderName,
+      avatarColor: m.senderColor,
+      avatarUrl: m.senderAvatarUrl
+    });
     row.appendChild(av);
 
     const body = document.createElement('div');
@@ -95,10 +96,11 @@ const Chat = (() => {
     row.className = 'message-row join-request-row';
     row.dataset.requestId = m.joinRequest.id;
 
-    const av = document.createElement('div');
-    av.className = 'avatar';
-    av.style.background = m.senderColor || '#5865F2';
-    av.textContent = initials(m.senderName);
+    const av = avatarEl({
+      displayName: m.senderName,
+      avatarColor: m.senderColor,
+      avatarUrl: m.senderAvatarUrl
+    });
     row.appendChild(av);
 
     const body = document.createElement('div');

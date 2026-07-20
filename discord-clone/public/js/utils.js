@@ -22,7 +22,15 @@ const Utils = (() => {
     const el = document.createElement('div');
     el.className = `avatar ${size}`;
     el.style.background = user.avatarColor || user.senderColor || '#5865F2';
-    el.textContent = initials(user.displayName || user.senderName);
+    if (user.avatarUrl) {
+      el.innerHTML = '';
+      const img = document.createElement('img');
+      img.src = user.avatarUrl;
+      img.alt = user.displayName || user.senderName || 'avatar';
+      el.appendChild(img);
+    } else {
+      el.textContent = initials(user.displayName || user.senderName);
+    }
     return el;
   }
 

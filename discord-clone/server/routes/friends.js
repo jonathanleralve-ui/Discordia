@@ -11,6 +11,7 @@ function publicUser(u) {
     username: u.username,
     displayName: u.display_name,
     avatarColor: u.avatar_color,
+    avatarUrl: u.avatar_url,
     status: u.status
   };
 }
