@@ -223,6 +223,7 @@ const Friends = (() => {
   function openAddFriendPanel() {
     $('#chat-panel').classList.add('hidden');
     $('#empty-state').classList.add('hidden');
+    $('#edit-profile-panel').classList.add('hidden');
     $('#add-friend-error').textContent = '';
     $('#add-friend-input').value = '';
     $('#add-friend-results').innerHTML = '';
