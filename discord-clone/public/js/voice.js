@@ -21,6 +21,7 @@ const VoiceChat = (() => {
   const speakingDetectors = {}; // key ('self' or socketId) -> { audioCtx, source, rafId }
 
   function $(sel) { return document.querySelector(sel); }
+  const { avatarEl, initials } = Utils;
 
   // ============ PUBLIC API ============
 
@@ -395,10 +396,10 @@ const VoiceChat = (() => {
     list.innerHTML = '';
 
     if (connectedChannelId) {
-      list.appendChild(participantTile('self', me.displayName, me.avatarColor, muted, sharingScreen, true));
+      list.appendChild(participantTile('self', me.displayName, me.avatarColor, muted, sharingScreen, true, me.avatarUrl));
     }
     Object.entries(peers).forEach(([socketId, { info }]) => {
-      list.appendChild(participantTile(socketId, info.displayName, info.avatarColor, !!info.muted, info.sharing, false));
+      list.appendChild(participantTile(socketId, info.displayName, info.avatarColor, !!info.muted, info.sharing, false, info.avatarUrl));
     });
 
     if (list.children.length === 0) {
@@ -406,7 +407,7 @@ const VoiceChat = (() => {
     }
   }
 
-  function participantTile(key, name, color, isMuted, isSharing, isSelf) {
+  function participantTile(key, name, color, isMuted, isSharing, isSelf, avatarUrl) {
     const tile = document.createElement('div');
     tile.className = 'voice-tile';
     tile.dataset.speaker = key;
@@ -415,10 +416,7 @@ const VoiceChat = (() => {
     ring.className = 'avatar-ring';
     ring.style.setProperty('--ring-color', color || '#5865F2');
 
-    const avatar = document.createElement('div');
-    avatar.className = 'avatar';
-    avatar.style.background = color || '#5865F2';
-    avatar.textContent = (name || '?').trim().charAt(0).toUpperCase();
+    const avatar = avatarEl({ displayName: name, avatarColor: color, avatarUrl: avatarUrl });
     ring.appendChild(avatar);
 
     if (isMuted) {
