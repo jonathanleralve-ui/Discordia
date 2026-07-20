@@ -112,6 +112,63 @@ router.get('/:groupId/members', async (req, res) => {
   }
 });
 
+// Search groups by name, excluding ones the user already belongs to
+router.get('/search', async (req, res) => {
+  try {
+    const q = String(req.query.q || '').trim().toLowerCase();
+    if (!q) return res.json({ groups: [] });
+
+    const result = await db.query(
+      `SELECT g.*, (SELECT COUNT(*) FROM group_members gm2 WHERE gm2.group_id = g.id) AS member_count
+       FROM groups g
+       WHERE g.name ILIKE $1
+         AND g.id NOT IN (SELECT group_id FROM group_members WHERE user_id = $2)
+       ORDER BY g.name ASC
+       LIMIT 10`,
+      [`%${q}%`, req.user.id]
+    );
+
+    res.json({
+      groups: result.rows.map((g) => ({
+        id: g.id,
+        name: g.name,
+        iconColor: g.icon_color,
+        ownerId: g.owner_id,
+        memberCount: Number(g.member_count)
+      }))
+    });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Something went wrong, please try again' });
+  }
+});
+
+// Join a group (self-service — no invite/approval required). The client
+// looks the group up by name via /search first, then joins by its id.
+router.post('/:groupId/join', async (req, res) => {
+  try {
+    const uid = req.user.id;
+    const groupId = Number(req.params.groupId);
+    if (!Number.isInteger(groupId)) return res.status(400).json({ error: 'Invalid group' });
+
+    const groupResult = await db.query('SELECT * FROM groups WHERE id = $1', [groupId]);
+    const group = groupResult.rows[0];
+    if (!group) return res.status(404).json({ error: 'Group not found' });
+
+    await db.query(
+      'INSERT INTO group_members (group_id, user_id) VALUES ($1, $2) ON CONFLICT DO NOTHING',
+      [groupId, uid]
+    );
+
+    res.status(200).json({
+      group: { id: group.id, name: group.name, iconColor: group.icon_color, ownerId: group.owner_id }
+    });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Something went wrong, please try again' });
+  }
+});
+
 // Add a friend to a group
 router.post('/:groupId/members', async (req, res) => {
   try {

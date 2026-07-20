@@ -33,6 +33,8 @@ const Api = (() => {
     list: () => request('/groups'),
     create: (name, memberIds) =>
       request('/groups', { method: 'POST', body: JSON.stringify({ name, memberIds }) }),
+    search: (q) => request(`/groups/search?q=${encodeURIComponent(q)}`),
+    join: (groupId) => request(`/groups/${groupId}/join`, { method: 'POST' }),
     members: (groupId) => request(`/groups/${groupId}/members`),
     addMember: (groupId, userId) =>
       request(`/groups/${groupId}/members`, { method: 'POST', body: JSON.stringify({ userId }) }),

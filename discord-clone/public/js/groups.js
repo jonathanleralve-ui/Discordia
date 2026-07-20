@@ -195,6 +195,7 @@ const Groups = (() => {
     $('#modal-overlay').classList.add('hidden');
     $('#select-group-action-modal').classList.add('hidden');
     $('#create-group-modal').classList.add('hidden');
+    $('#join-group-modal').classList.add('hidden');
     $('#add-member-modal').classList.add('hidden');
     $('#create-channel-modal').classList.add('hidden');
   }
@@ -203,6 +204,7 @@ const Groups = (() => {
     $('#modal-overlay').classList.remove('hidden');
     $('#select-group-action-modal').classList.add('hidden');
     $('#create-group-modal').classList.add('hidden');
+    $('#join-group-modal').classList.add('hidden');
     $('#add-member-modal').classList.add('hidden');
     $('#create-channel-modal').classList.add('hidden');
     $(`#${id}`).classList.remove('hidden');
@@ -213,6 +215,92 @@ const Groups = (() => {
   // modal opens.
   function openSelectActionModal() {
     showModal('select-group-action-modal');
+  }
+
+  let joinSearchDebounce = null;
+  let joinSearchToken = 0;
+
+  function openJoinModal() {
+    clearTimeout(joinSearchDebounce);
+    joinSearchToken++;
+    $('#join-group-search').value = '';
+    $('#join-group-results').innerHTML = '';
+    $('#join-group-error').textContent = '';
+    showModal('join-group-modal');
+    $('#join-group-search').focus();
+  }
+
+  function buildJoinResultRow(g) {
+    const row = document.createElement('div');
+    row.className = 'friend-row search-result-row clickable';
+
+    const icon = document.createElement('div');
+    icon.className = 'avatar';
+    icon.style.background = g.iconColor;
+    icon.textContent = initials(g.name);
+    row.appendChild(icon);
+
+    const meta = document.createElement('div');
+    meta.className = 'friend-meta';
+    const memberLabel = `${g.memberCount} member${g.memberCount === 1 ? '' : 's'}`;
+    meta.innerHTML = `<div class="friend-name">${escapeHtml(g.name)}</div><div class="friend-sub">${memberLabel}</div>`;
+    row.appendChild(meta);
+
+    const action = document.createElement('div');
+    action.className = 'search-result-action addable';
+    action.textContent = '+ Join';
+    row.appendChild(action);
+
+    row.addEventListener('click', () => joinFromSearch(g, row, action));
+    return row;
+  }
+
+  function joinFromSearch(g, row, action) {
+    row.classList.remove('clickable');
+    row.classList.add('sending');
+    action.textContent = 'Joining...';
+    $('#join-group-error').textContent = '';
+    Api.groups.join(g.id)
+      .then(({ group }) => {
+        closeModals();
+        return refresh().then(() => {
+          const joined = AppState.groupsData.find((x) => x.id === group.id);
+          if (joined) open(joined);
+        });
+      })
+      .catch((err) => {
+        row.classList.remove('sending');
+        row.classList.add('clickable');
+        action.textContent = '+ Join';
+        $('#join-group-error').textContent = err.message;
+      });
+  }
+
+  function renderJoinResults(groupsFound) {
+    const el = $('#join-group-results');
+    el.innerHTML = '';
+    if (groupsFound.length === 0) {
+      el.innerHTML = '<div class="empty-list-hint">No matching groups.</div>';
+      return;
+    }
+    groupsFound.forEach((g) => el.appendChild(buildJoinResultRow(g)));
+  }
+
+  function runJoinSearch(query) {
+    const myToken = ++joinSearchToken;
+    if (!query) {
+      $('#join-group-results').innerHTML = '';
+      return;
+    }
+    Api.groups.search(query)
+      .then((data) => {
+        if (myToken !== joinSearchToken) return; // a newer search superseded this one
+        renderJoinResults(data.groups);
+      })
+      .catch(() => {
+        if (myToken !== joinSearchToken) return;
+        $('#join-group-results').innerHTML = '<div class="empty-list-hint">Search failed, try again.</div>';
+      });
   }
 
   function openAddMemberModal() {
@@ -266,15 +354,19 @@ const Groups = (() => {
 
     $('#select-group-action-cancel').addEventListener('click', closeModals);
     $('#select-create-group').addEventListener('click', openCreateModal);
-    $('#select-join-group').addEventListener('click', () => {
-      // Joining an existing group isn't implemented yet — this is just the
-      // selector UI for now.
-      alert('Joining a group is coming soon!');
-    });
+    $('#select-join-group').addEventListener('click', openJoinModal);
 
     $('#create-group-cancel').addEventListener('click', closeModals);
     $('#modal-overlay').addEventListener('click', (e) => {
       if (e.target === $('#modal-overlay')) closeModals();
+    });
+
+    $('#join-group-cancel').addEventListener('click', closeModals);
+    $('#join-group-search').addEventListener('input', () => {
+      const query = $('#join-group-search').value.trim();
+      $('#join-group-error').textContent = '';
+      clearTimeout(joinSearchDebounce);
+      joinSearchDebounce = setTimeout(() => runJoinSearch(query), 250);
     });
 
     $('#create-group-confirm').addEventListener('click', () => {

@@ -188,7 +188,7 @@
         <div class="action-option-icon">↳</div>
         <div class="action-option-text">
           <div class="action-option-title">Join a Group</div>
-          <div class="action-option-desc">Have an invite? Join an existing group</div>
+          <div class="action-option-desc">Search by name to join an existing group</div>
         </div>
       </button>
     </div>
@@ -206,6 +206,17 @@
     <div class="modal-actions">
       <button class="btn-secondary" id="create-group-cancel">Cancel</button>
       <button class="btn-primary" id="create-group-confirm">Create</button>
+    </div>
+  </div>
+
+  <div class="modal hidden" id="join-group-modal">
+    <h2>Join a Group</h2>
+    <label>Group Name</label>
+    <input type="text" id="join-group-search" placeholder="Search by group name..." autocomplete="off" />
+    <div id="join-group-results" class="friend-checklist"></div>
+    <div class="auth-error" id="join-group-error"></div>
+    <div class="modal-actions">
+      <button class="btn-secondary" id="join-group-cancel">Cancel</button>
     </div>
   </div>
 
