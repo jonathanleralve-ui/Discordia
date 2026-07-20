@@ -1304,6 +1304,7 @@ input { font-family: inherit; }
 }
 
 .modal h2 { color: var(--text-bright); margin-bottom: 16px; font-size: 18px; }
+.modal p { color: var(--text-muted); line-height: 1.5; margin-bottom: 8px; }
 .modal label { display: block; font-size: 12px; font-weight: 700; text-transform: uppercase; color: var(--text-muted); margin-bottom: 6px; margin-top: 12px; }
 .modal input {
   width: 100%;

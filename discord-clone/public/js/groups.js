@@ -4,6 +4,8 @@ const Groups = (() => {
   const { $, $$, escapeHtml, initials, avatarWithStatus } = Utils;
 
   let createChannelType = 'text';
+  let pendingRenameChannel = null;
+  let pendingDeleteChannel = null;
 
   function refresh() {
     return Api.groups.list().then((data) => {
@@ -140,13 +142,7 @@ const Groups = (() => {
     renameBtn.addEventListener('click', (e) => {
       e.stopPropagation();
       actionsWrap.classList.remove('open');
-      const nextName = window.prompt(`Rename #${c.name}`, c.name);
-      if (!nextName) return;
-      const cleanName = String(nextName).trim().toLowerCase().replace(/\s+/g, '-').slice(0, 50);
-      if (!cleanName || cleanName === c.name) return;
-      Api.channels.rename(c.id, cleanName)
-        .then(() => loadChannels(AppState.activeGroup.id))
-        .catch((err) => alert(err.message));
+      openRenameChannelModal(c);
     });
 
     const deleteBtn = document.createElement('button');
@@ -155,18 +151,7 @@ const Groups = (() => {
     deleteBtn.addEventListener('click', (e) => {
       e.stopPropagation();
       actionsWrap.classList.remove('open');
-      if (!confirm(`Delete #${c.name}?`)) return;
-      Api.channels.remove(c.id)
-        .then(() => {
-          if (isVoice && VoiceChat.isConnectedTo(c.id)) VoiceChat.leaveCurrent();
-          if (!isVoice && AppState.activeChat && AppState.activeChat.id === c.id) {
-            AppState.activeChat = null;
-            $('#empty-state').classList.remove('hidden');
-            $('#chat-panel').classList.add('hidden');
-          }
-          return loadChannels(AppState.activeGroup.id);
-        })
-        .catch((err) => alert(err.message));
+      openDeleteChannelModal(c);
     });
 
     menu.appendChild(renameBtn);
@@ -229,12 +214,16 @@ const Groups = (() => {
   }
 
   function closeModals() {
+    pendingRenameChannel = null;
+    pendingDeleteChannel = null;
     $('#modal-overlay').classList.add('hidden');
     $('#select-group-action-modal').classList.add('hidden');
     $('#create-group-modal').classList.add('hidden');
     $('#join-group-modal').classList.add('hidden');
     $('#add-member-modal').classList.add('hidden');
     $('#create-channel-modal').classList.add('hidden');
+    $('#rename-channel-modal').classList.add('hidden');
+    $('#delete-channel-modal').classList.add('hidden');
   }
 
   function showModal(id) {
@@ -244,7 +233,63 @@ const Groups = (() => {
     $('#join-group-modal').classList.add('hidden');
     $('#add-member-modal').classList.add('hidden');
     $('#create-channel-modal').classList.add('hidden');
+    $('#rename-channel-modal').classList.add('hidden');
+    $('#delete-channel-modal').classList.add('hidden');
     $(`#${id}`).classList.remove('hidden');
+  }
+
+  function openRenameChannelModal(channel) {
+    if (!channel) return;
+    pendingRenameChannel = channel;
+    $('#rename-channel-name').value = channel.name;
+    $('#rename-channel-error').textContent = '';
+    showModal('rename-channel-modal');
+    setTimeout(() => $('#rename-channel-name').focus(), 0);
+  }
+
+  function openDeleteChannelModal(channel) {
+    if (!channel) return;
+    pendingDeleteChannel = channel;
+    $('#delete-channel-message').textContent = `Delete #${channel.name}? This action cannot be undone.`;
+    showModal('delete-channel-modal');
+  }
+
+  function confirmRenameChannel() {
+    if (!pendingRenameChannel) return;
+    const name = $('#rename-channel-name').value.trim();
+    $('#rename-channel-error').textContent = '';
+    if (!name) return;
+    const cleanName = String(name).trim().toLowerCase().replace(/\s+/g, '-').slice(0, 50);
+    if (!cleanName || cleanName === pendingRenameChannel.name) {
+      $('#rename-channel-error').textContent = 'Choose a different channel name.';
+      return;
+    }
+    Api.channels.rename(pendingRenameChannel.id, cleanName)
+      .then(() => {
+        closeModals();
+        return loadChannels(AppState.activeGroup.id);
+      })
+      .catch((err) => {
+        $('#rename-channel-error').textContent = err.message;
+      });
+  }
+
+  function confirmDeleteChannel() {
+    if (!pendingDeleteChannel) return;
+    const channel = pendingDeleteChannel;
+    const isVoice = channel.type === 'voice';
+    closeModals();
+    Api.channels.remove(channel.id)
+      .then(() => {
+        if (isVoice && VoiceChat.isConnectedTo(channel.id)) VoiceChat.leaveCurrent();
+        if (!isVoice && AppState.activeChat && AppState.activeChat.id === channel.id) {
+          AppState.activeChat = null;
+          $('#empty-state').classList.remove('hidden');
+          $('#chat-panel').classList.add('hidden');
+        }
+        return loadChannels(AppState.activeGroup.id);
+      })
+      .catch((err) => alert(err.message));
   }
 
   // Shown when the "+" rail button is clicked — lets the user pick between
@@ -481,6 +526,11 @@ const Groups = (() => {
         })
         .catch((err) => { $('#create-channel-error').textContent = err.message; });
     });
+
+    $('#rename-channel-cancel').addEventListener('click', closeModals);
+    $('#rename-channel-confirm').addEventListener('click', confirmRenameChannel);
+    $('#delete-channel-cancel').addEventListener('click', closeModals);
+    $('#delete-channel-confirm').addEventListener('click', confirmDeleteChannel);
 
     const leaveBtn = $('#group-leave-btn');
     if (leaveBtn) leaveBtn.addEventListener('click', leaveActiveGroup);

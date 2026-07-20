@@ -268,6 +268,26 @@
     </div>
   </div>
 
+  <div class="modal hidden" id="rename-channel-modal">
+    <h2>Rename Channel</h2>
+    <label>New Channel Name</label>
+    <input type="text" id="rename-channel-name" placeholder="new-channel" />
+    <div class="auth-error" id="rename-channel-error"></div>
+    <div class="modal-actions">
+      <button class="btn-secondary" id="rename-channel-cancel">Cancel</button>
+      <button class="btn-primary" id="rename-channel-confirm">Save</button>
+    </div>
+  </div>
+
+  <div class="modal hidden" id="delete-channel-modal">
+    <h2>Delete Channel</h2>
+    <p id="delete-channel-message"></p>
+    <div class="modal-actions">
+      <button class="btn-secondary" id="delete-channel-cancel">Cancel</button>
+      <button class="btn-primary" id="delete-channel-confirm">Delete</button>
+    </div>
+  </div>
+
   <div class="modal hidden" id="edit-profile-modal">
     <h2>Edit Profile</h2>
     <label>Display Name</label>
