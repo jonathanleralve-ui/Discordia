@@ -22,6 +22,14 @@ const SocketClient = (() => {
       Chat.handleIncomingMessage('channel', msg);
     });
 
+    socket.on('group:join-request-resolved', ({ requestId, status }) => {
+      Chat.handleJoinRequestResolved(requestId, status);
+    });
+
+    socket.on('group:joined', ({ group }) => {
+      Groups.handleJoined(group);
+    });
+
     socket.on('typing', ({ scope, from, channelId }) => {
       Chat.handleTypingEvent(scope, from, channelId);
     });

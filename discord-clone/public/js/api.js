@@ -34,7 +34,9 @@ const Api = (() => {
     create: (name, memberIds) =>
       request('/groups', { method: 'POST', body: JSON.stringify({ name, memberIds }) }),
     search: (q) => request(`/groups/search?q=${encodeURIComponent(q)}`),
-    join: (groupId) => request(`/groups/${groupId}/join`, { method: 'POST' }),
+    requestJoin: (groupId) => request(`/groups/${groupId}/join-requests`, { method: 'POST' }),
+    acceptJoinRequest: (groupId, requestId) =>
+      request(`/groups/${groupId}/join-requests/${requestId}/accept`, { method: 'POST' }),
     members: (groupId) => request(`/groups/${groupId}/members`),
     addMember: (groupId, userId) =>
       request(`/groups/${groupId}/members`, { method: 'POST', body: JSON.stringify({ userId }) }),

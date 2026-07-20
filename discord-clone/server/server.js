@@ -18,6 +18,7 @@ const uploadRoutes = require('./routes/upload');
 const app = express();
 const server = http.createServer(app);
 const io = new Server(server);
+app.set('io', io);
 
 app.use(cors());
 app.use(express.json());

@@ -143,9 +143,10 @@ router.get('/search', async (req, res) => {
   }
 });
 
-// Join a group (self-service — no invite/approval required). The client
-// looks the group up by name via /search first, then joins by its id.
-router.post('/:groupId/join', async (req, res) => {
+// Request to join a group. Instead of adding the requester immediately, this
+// posts a "wants to join" card into the group's default text channel — any
+// existing member can accept it from chat (see /:groupId/join-requests/:id/accept).
+router.post('/:groupId/join-requests', async (req, res) => {
   try {
     const uid = req.user.id;
     const groupId = Number(req.params.groupId);
@@ -155,14 +156,112 @@ router.post('/:groupId/join', async (req, res) => {
     const group = groupResult.rows[0];
     if (!group) return res.status(404).json({ error: 'Group not found' });
 
-    await db.query(
-      'INSERT INTO group_members (group_id, user_id) VALUES ($1, $2) ON CONFLICT DO NOTHING',
+    const memberCheck = await db.query(
+      'SELECT 1 FROM group_members WHERE group_id = $1 AND user_id = $2',
       [groupId, uid]
     );
+    if (memberCheck.rows.length > 0) return res.status(400).json({ error: 'You are already in this group' });
 
-    res.status(200).json({
+    const existing = await db.query(
+      `SELECT * FROM group_join_requests WHERE group_id = $1 AND user_id = $2 AND status = 'pending'`,
+      [groupId, uid]
+    );
+    if (existing.rows.length > 0) {
+      return res.status(200).json({ requestId: existing.rows[0].id, alreadyPending: true });
+    }
+
+    const inserted = await db.query(
+      `INSERT INTO group_join_requests (group_id, user_id, status)
+       VALUES ($1, $2, 'pending')
+       ON CONFLICT (group_id, user_id) DO UPDATE SET status = 'pending', created_at = now()
+       RETURNING *`,
+      [groupId, uid]
+    );
+    const request = inserted.rows[0];
+
+    // Post the request as a message in the group's first text channel
+    // ("general", by convention) so members see and can act on it in chat.
+    const channelResult = await db.query(
+      `SELECT * FROM channels WHERE group_id = $1 AND type = 'text' ORDER BY position ASC, id ASC LIMIT 1`,
+      [groupId]
+    );
+    const channel = channelResult.rows[0];
+
+    if (channel) {
+      const msgInserted = await db.query(
+        `INSERT INTO messages (sender_id, channel_id, group_id, content, message_type, join_request_id)
+         VALUES ($1, $2, $3, '', 'join_request', $4) RETURNING id, created_at`,
+        [uid, channel.id, groupId, request.id]
+      );
+      const requesterResult = await db.query('SELECT display_name, avatar_color FROM users WHERE id = $1', [uid]);
+      const requester = requesterResult.rows[0];
+
+      const io = req.app.get('io');
+      io.to(`channel:${channel.id}`).emit('channel:message', {
+        id: msgInserted.rows[0].id,
+        content: '',
+        createdAt: msgInserted.rows[0].created_at,
+        senderId: uid,
+        senderName: requester.display_name,
+        senderColor: requester.avatar_color,
+        channelId: channel.id,
+        messageType: 'join_request',
+        joinRequest: { id: request.id, status: 'pending', userId: uid, groupId }
+      });
+    }
+
+    res.status(201).json({ requestId: request.id });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Something went wrong, please try again' });
+  }
+});
+
+// Accept a pending join request (any existing member can do this)
+router.post('/:groupId/join-requests/:requestId/accept', async (req, res) => {
+  try {
+    const uid = req.user.id;
+    const groupId = Number(req.params.groupId);
+    const requestId = Number(req.params.requestId);
+
+    const memberCheck = await db.query(
+      'SELECT 1 FROM group_members WHERE group_id = $1 AND user_id = $2',
+      [groupId, uid]
+    );
+    if (memberCheck.rows.length === 0) return res.status(403).json({ error: 'Not a member of this group' });
+
+    const requestResult = await db.query(
+      'SELECT * FROM group_join_requests WHERE id = $1 AND group_id = $2',
+      [requestId, groupId]
+    );
+    const request = requestResult.rows[0];
+    if (!request) return res.status(404).json({ error: 'Join request not found' });
+    if (request.status !== 'pending') return res.status(400).json({ error: 'This request was already resolved' });
+
+    await db.query(`UPDATE group_join_requests SET status = 'accepted' WHERE id = $1`, [requestId]);
+    await db.query(
+      'INSERT INTO group_members (group_id, user_id) VALUES ($1, $2) ON CONFLICT DO NOTHING',
+      [groupId, request.user_id]
+    );
+
+    const groupResult = await db.query('SELECT * FROM groups WHERE id = $1', [groupId]);
+    const group = groupResult.rows[0];
+
+    const io = req.app.get('io');
+
+    const msgResult = await db.query('SELECT channel_id FROM messages WHERE join_request_id = $1 LIMIT 1', [requestId]);
+    const channelId = msgResult.rows[0] && msgResult.rows[0].channel_id;
+    if (channelId) {
+      io.to(`channel:${channelId}`).emit('group:join-request-resolved', { requestId, groupId, status: 'accepted' });
+    }
+
+    // The requester isn't in the channel room yet, so notify them directly
+    // so their client can refresh its group list and open the new group.
+    io.to(`user:${request.user_id}`).emit('group:joined', {
       group: { id: group.id, name: group.name, iconColor: group.icon_color, ownerId: group.owner_id }
     });
+
+    res.json({ ok: true });
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: 'Something went wrong, please try again' });

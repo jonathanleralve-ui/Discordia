@@ -53,6 +53,24 @@ CREATE TABLE IF NOT EXISTS group_members (
   UNIQUE(group_id, user_id)
 );
 
+-- Joining a group now requires an existing member to accept the request
+-- (posted as a message in the group's default channel) rather than adding
+-- the requester immediately.
+CREATE TABLE IF NOT EXISTS group_join_requests (
+  id SERIAL PRIMARY KEY,
+  group_id INTEGER NOT NULL REFERENCES groups(id) ON DELETE CASCADE,
+  user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  status TEXT NOT NULL DEFAULT 'pending', -- pending | accepted
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  UNIQUE(group_id, user_id)
+);
+
+-- Belt-and-suspenders: if the table above already existed from an earlier
+-- run (before the inline UNIQUE constraint was added), CREATE TABLE IF NOT
+-- EXISTS would have skipped it, leaving ON CONFLICT (group_id, user_id)
+-- below with no arbiter index. This ensures the index exists either way.
+CREATE UNIQUE INDEX IF NOT EXISTS idx_group_join_requests_unique ON group_join_requests(group_id, user_id);
+
 -- A group ("server") is now made up of channels, same as Discord: several
 -- text channels and several voice channels, organized into categories.
 CREATE TABLE IF NOT EXISTS channels (
@@ -89,6 +107,11 @@ ALTER TABLE messages ADD COLUMN IF NOT EXISTS attachment_size INTEGER;
 
 -- content used to be required; attachment-only messages send an empty string.
 ALTER TABLE messages ALTER COLUMN content SET DEFAULT '';
+
+-- A message can represent a group join request instead of regular chat text,
+-- rendered as an "X wants to join" card with an Accept action.
+ALTER TABLE messages ADD COLUMN IF NOT EXISTS message_type TEXT NOT NULL DEFAULT 'text';
+ALTER TABLE messages ADD COLUMN IF NOT EXISTS join_request_id INTEGER REFERENCES group_join_requests(id) ON DELETE CASCADE;
 
 CREATE INDEX IF NOT EXISTS idx_messages_dm ON messages(sender_id, recipient_id);
 CREATE INDEX IF NOT EXISTS idx_messages_channel ON messages(channel_id);

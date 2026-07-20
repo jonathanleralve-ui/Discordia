@@ -248,7 +248,7 @@ const Groups = (() => {
 
     const action = document.createElement('div');
     action.className = 'search-result-action addable';
-    action.textContent = '+ Join';
+    action.textContent = '+ Ask to Join';
     row.appendChild(action);
 
     row.addEventListener('click', () => joinFromSearch(g, row, action));
@@ -258,20 +258,17 @@ const Groups = (() => {
   function joinFromSearch(g, row, action) {
     row.classList.remove('clickable');
     row.classList.add('sending');
-    action.textContent = 'Joining...';
+    action.textContent = 'Requesting...';
     $('#join-group-error').textContent = '';
-    Api.groups.join(g.id)
-      .then(({ group }) => {
+    Api.groups.requestJoin(g.id)
+      .then(() => {
         closeModals();
-        return refresh().then(() => {
-          const joined = AppState.groupsData.find((x) => x.id === group.id);
-          if (joined) open(joined);
-        });
+        alert(`Request sent! A member of "${g.name}" needs to accept it in chat before you can access the group.`);
       })
       .catch((err) => {
         row.classList.remove('sending');
         row.classList.add('clickable');
-        action.textContent = '+ Join';
+        action.textContent = '+ Ask to Join';
         $('#join-group-error').textContent = err.message;
       });
   }
@@ -347,6 +344,15 @@ const Groups = (() => {
       })
       .then(() => App.showFriendsHome())
       .catch((err) => alert(err.message));
+  }
+
+  // Called when a join request we sent gets accepted (via the group:joined
+  // socket event) — refresh the rail and hop into the newly-joined group.
+  function handleJoined(g) {
+    return refresh().then(() => {
+      const joined = AppState.groupsData.find((x) => x.id === g.id);
+      if (joined) open(joined);
+    });
   }
 
   function initUI() {
@@ -427,5 +433,5 @@ const Groups = (() => {
     if (leaveBtn) leaveBtn.addEventListener('click', leaveActiveGroup);
   }
 
-  return { refresh, open, initUI, refreshChannelHighlight };
+  return { refresh, open, initUI, refreshChannelHighlight, handleJoined };
 })();

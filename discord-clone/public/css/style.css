@@ -596,6 +596,21 @@ input { font-family: inherit; }
 
 .message-row.own .message-author { color: #a4b3ff; }
 
+.join-request-card {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-top: 2px;
+  padding: 10px 12px;
+  background: var(--bg-darkest);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  width: fit-content;
+}
+.join-request-text { font-size: 14px; color: var(--text-normal); }
+.join-request-accept-btn { padding: 6px 14px; font-size: 13px; }
+.join-request-resolved-label { font-size: 13px; font-weight: 600; color: var(--green); }
+
 .attachment-image-link { display: inline-block; margin-top: 6px; cursor: zoom-in; }
 .attachment-image {
   max-width: 400px;

@@ -16,6 +16,10 @@ function formatMessage(m, senderMap) {
     senderColor: sender ? sender.avatar_color : '#5865F2',
     recipientId: m.recipient_id,
     channelId: m.channel_id,
+    messageType: m.message_type || 'text',
+    joinRequest: m.join_request_id
+      ? { id: m.join_request_id, status: m.join_request_status, userId: m.join_request_user_id, groupId: m.group_id }
+      : null,
     attachment: m.attachment_url
       ? {
           url: m.attachment_url,
@@ -83,7 +87,10 @@ router.get('/channel/:channelId', async (req, res) => {
     if (memberCheck.rows.length === 0) return res.status(403).json({ error: 'Not a member of this group' });
 
     const messagesResult = await db.query(
-      'SELECT * FROM messages WHERE channel_id = $1 ORDER BY id ASC LIMIT 200',
+      `SELECT m.*, gjr.status AS join_request_status, gjr.user_id AS join_request_user_id
+       FROM messages m
+       LEFT JOIN group_join_requests gjr ON gjr.id = m.join_request_id
+       WHERE m.channel_id = $1 ORDER BY m.id ASC LIMIT 200`,
       [channelId]
     );
 

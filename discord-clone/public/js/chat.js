@@ -58,6 +58,11 @@ const Chat = (() => {
   }
 
   function appendMessage(m) {
+    if (m.messageType === 'join_request') {
+      appendJoinRequestMessage(m);
+      return;
+    }
+
     const list = $('#chat-messages');
     const row = document.createElement('div');
     row.className = `message-row ${m.senderId === AppState.me.id ? 'own' : ''}`;
@@ -82,6 +87,64 @@ const Chat = (() => {
     row.appendChild(body);
     list.appendChild(row);
     scrollToBottom();
+  }
+
+  function appendJoinRequestMessage(m) {
+    const list = $('#chat-messages');
+    const row = document.createElement('div');
+    row.className = 'message-row join-request-row';
+    row.dataset.requestId = m.joinRequest.id;
+
+    const av = document.createElement('div');
+    av.className = 'avatar';
+    av.style.background = m.senderColor || '#5865F2';
+    av.textContent = initials(m.senderName);
+    row.appendChild(av);
+
+    const body = document.createElement('div');
+    body.className = 'message-body';
+    body.innerHTML = `
+      <div class="message-head">
+        <span class="message-author">${escapeHtml(m.senderName)}</span>
+        <span class="message-time">${formatTime(m.createdAt)}</span>
+      </div>
+      <div class="join-request-card">
+        <span class="join-request-text">wants to join this group</span>
+        <button type="button" class="btn-primary join-request-accept-btn">Accept</button>
+        <span class="join-request-resolved-label hidden">Accepted ✓</span>
+      </div>
+    `;
+    row.appendChild(body);
+    list.appendChild(row);
+
+    applyJoinRequestState(row, m.joinRequest);
+
+    body.querySelector('.join-request-accept-btn').addEventListener('click', () => {
+      const btn = body.querySelector('.join-request-accept-btn');
+      btn.disabled = true;
+      btn.textContent = 'Accepting...';
+      Api.groups.acceptJoinRequest(m.joinRequest.groupId, m.joinRequest.id)
+        .then(() => applyJoinRequestState(row, { status: 'accepted' }))
+        .catch((err) => {
+          btn.disabled = false;
+          btn.textContent = 'Accept';
+          alert(err.message);
+        });
+    });
+
+    scrollToBottom();
+  }
+
+  function applyJoinRequestState(row, joinRequest) {
+    const btn = row.querySelector('.join-request-accept-btn');
+    const label = row.querySelector('.join-request-resolved-label');
+    if (joinRequest.status === 'accepted') {
+      btn.classList.add('hidden');
+      label.classList.remove('hidden');
+    } else {
+      btn.classList.remove('hidden');
+      label.classList.add('hidden');
+    }
   }
 
   function isImage(type) { return /^image\//.test(type || ''); }
@@ -323,6 +386,12 @@ const Chat = (() => {
     }
   }
 
+  function handleJoinRequestResolved(requestId, status) {
+    const row = document.querySelector(`.join-request-row[data-request-id="${requestId}"]`);
+    if (!row) return;
+    applyJoinRequestState(row, { status });
+  }
+
   function initUI() {
     $('#chat-send').addEventListener('click', sendMessage);
     $('#chat-input').addEventListener('keydown', (e) => {
@@ -342,6 +411,7 @@ const Chat = (() => {
     openChatWindow,
     handleIncomingMessage,
     handleTypingEvent,
+    handleJoinRequestResolved,
     initUI
   };
 })();
