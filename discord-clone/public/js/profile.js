@@ -4,27 +4,9 @@
 const Profile = (() => {
   const { $, $$, initials } = Utils;
 
-  const COLORS = ['#5865F2', '#EB459E', '#57F287', '#FEE75C', '#ED4245', '#3BA55D', '#FAA61A'];
-
-  let selectedColor = null;
+  // avatar color selection removed
   let selectedAvatarUrl = null;
   let pendingAvatarFile = null;
-
-  function renderColors() {
-    const wrap = $('#edit-profile-colors');
-    wrap.innerHTML = '';
-    COLORS.forEach((color) => {
-      const swatch = document.createElement('div');
-      swatch.className = 'color-swatch' + (color === selectedColor ? ' selected' : '');
-      swatch.style.background = color;
-      swatch.title = color;
-      swatch.addEventListener('click', () => {
-        selectedColor = color;
-        renderColors();
-      });
-      wrap.appendChild(swatch);
-    });
-  }
 
   function renderPhotoPreview() {
     const preview = $('#edit-profile-photo-preview');
@@ -45,10 +27,8 @@ const Profile = (() => {
   function openModal() {
     $('#edit-profile-error').textContent = '';
     $('#edit-profile-displayname').value = AppState.me.displayName;
-    selectedColor = AppState.me.avatarColor;
     selectedAvatarUrl = AppState.me.avatarUrl || null;
     pendingAvatarFile = null;
-    renderColors();
     renderPhotoPreview();
 
     $('#chat-panel').classList.add('hidden');
@@ -77,7 +57,8 @@ const Profile = (() => {
     }
 
     const finalizeSave = (avatarUrl) => {
-      Api.auth.updateMe(displayName, selectedColor, avatarUrl)
+      // Do not send avatarColor (removed from UI) so pass undefined
+      Api.auth.updateMe(displayName, undefined, avatarUrl)
         .then((data) => {
           AppState.me = data.user;
           $('#me-name').textContent = AppState.me.displayName;

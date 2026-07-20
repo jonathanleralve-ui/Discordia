@@ -35,11 +35,8 @@ const Utils = (() => {
   }
 
   function avatarWithStatus(user) {
-    const wrap = avatarEl(user);
-    const dot = document.createElement('div');
-    dot.className = `status-dot ${user.status === 'online' ? 'online' : ''}`;
-    wrap.appendChild(dot);
-    return wrap;
+    // Status dot removed: return plain avatar element only
+    return avatarEl(user);
   }
 
   return { $, $$, initials, escapeHtml, formatTime, avatarEl, avatarWithStatus };

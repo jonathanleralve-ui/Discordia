@@ -303,6 +303,7 @@ input { font-family: inherit; }
   border: 3px solid var(--bg-dark);
   background: var(--text-muted);
 }
+/* status-dot removed: status indicator hidden */
 .status-dot.online { background: var(--green); }
 
 .friend-meta { flex: 1; min-width: 0; }
@@ -1326,6 +1327,7 @@ input { font-family: inherit; }
   cursor: pointer;
   border: 3px solid transparent;
 }
+/* avatar color swatches removed from profile editor */
 .color-swatch:hover { border-color: var(--bg-lighter); }
 .color-swatch.selected { border-color: var(--text-bright); }
 
