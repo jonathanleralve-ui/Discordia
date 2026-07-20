@@ -228,6 +228,7 @@ const Chat = (() => {
     const preview = $('#attachment-preview');
     if (!pendingFile) {
       preview.classList.add('hidden');
+      preview.classList.remove('media');
       preview.innerHTML = '';
       return;
     }
@@ -236,31 +237,42 @@ const Chat = (() => {
     const showThumb = isImage(pendingFile.type) || isVideo(pendingFile.type);
     pendingFileUrl = showThumb ? URL.createObjectURL(pendingFile) : null;
 
-    preview.innerHTML = `
-      ${showThumb ? '<div class="attachment-preview-thumb-wrap"></div>' : ''}
-      <span class="attachment-preview-name"></span>
-      <span class="attachment-preview-size">${escapeHtml(formatBytes(pendingFile.size))}</span>
-      <button type="button" class="attachment-preview-remove" id="attachment-preview-remove">✕</button>
-    `;
-
     if (showThumb) {
-      const wrap = preview.querySelector('.attachment-preview-thumb-wrap');
+      preview.classList.add('media');
+      preview.innerHTML = `
+        <div class="attachment-preview-card">
+          <div class="attachment-preview-toolbar">
+            <button type="button" class="attachment-preview-tool" id="attachment-preview-view" title="View">👁</button>
+            <button type="button" class="attachment-preview-tool" id="attachment-preview-remove" title="Remove">🗑</button>
+          </div>
+          <div class="attachment-preview-media"></div>
+          <div class="attachment-preview-caption"></div>
+        </div>
+      `;
+      const mediaWrap = preview.querySelector('.attachment-preview-media');
       if (isImage(pendingFile.type)) {
         const img = document.createElement('img');
         img.src = pendingFileUrl;
-        img.className = 'attachment-preview-thumb';
-        wrap.appendChild(img);
+        mediaWrap.appendChild(img);
       } else {
         const video = document.createElement('video');
         video.src = pendingFileUrl;
-        video.className = 'attachment-preview-thumb';
         video.muted = true;
-        wrap.appendChild(video);
+        mediaWrap.appendChild(video);
       }
+      preview.querySelector('.attachment-preview-caption').textContent = pendingFile.name;
+      preview.querySelector('#attachment-preview-view').addEventListener('click', () => openLightbox(pendingFileUrl, pendingFile.name));
+      preview.querySelector('#attachment-preview-remove').addEventListener('click', clearPendingFile);
+    } else {
+      preview.classList.remove('media');
+      preview.innerHTML = `
+        <span class="attachment-preview-name"></span>
+        <span class="attachment-preview-size">${escapeHtml(formatBytes(pendingFile.size))}</span>
+        <button type="button" class="attachment-preview-remove" id="attachment-preview-remove">✕</button>
+      `;
+      preview.querySelector('.attachment-preview-name').textContent = pendingFile.name;
+      preview.querySelector('#attachment-preview-remove').addEventListener('click', clearPendingFile);
     }
-
-    preview.querySelector('.attachment-preview-name').textContent = pendingFile.name;
-    preview.querySelector('#attachment-preview-remove').addEventListener('click', clearPendingFile);
   }
 
   function clearPendingFile() {
