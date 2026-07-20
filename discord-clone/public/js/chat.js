@@ -7,6 +7,7 @@ const Chat = (() => {
   let typingTimeout = null;
   const typingClearTimers = {};
   let pendingFile = null;
+  let pendingFileUrl = null;
   const MAX_UPLOAD_MB = 25;
 
   function openDM(friend) {
@@ -102,11 +103,21 @@ const Chat = (() => {
       link.target = '_blank';
       link.rel = 'noopener noreferrer';
       link.className = 'attachment-image-link';
+      link.title = 'Click to view full size';
       const img = document.createElement('img');
       img.src = att.url;
       img.alt = att.name || 'image attachment';
       img.className = 'attachment-image';
       link.appendChild(img);
+      // Plain click opens an in-app full-resolution lightbox instead of
+      // navigating away (which loses the original pixel data to the
+      // browser's own fit-to-window downscaling). Ctrl/Cmd/middle-click
+      // still falls through to opening the raw file in a new tab.
+      link.addEventListener('click', (e) => {
+        if (e.metaKey || e.ctrlKey || e.shiftKey || e.button === 1) return;
+        e.preventDefault();
+        openLightbox(att.url, att.name);
+      });
       return link;
     }
     if (isVideo(att.type)) {
@@ -131,6 +142,35 @@ const Chat = (() => {
     `;
     chip.querySelector('.attachment-file-name').textContent = att.name || 'file';
     return chip;
+  }
+
+  function openLightbox(url, name) {
+    let overlay = $('#lightbox-overlay');
+    if (!overlay) {
+      overlay = document.createElement('div');
+      overlay.id = 'lightbox-overlay';
+      overlay.className = 'lightbox-overlay';
+      overlay.innerHTML = `
+        <a class="lightbox-open-original" target="_blank" rel="noopener noreferrer">Open original ↗</a>
+        <img class="lightbox-img" />
+      `;
+      overlay.addEventListener('click', (e) => {
+        if (e.target === overlay) closeLightbox();
+      });
+      document.body.appendChild(overlay);
+      document.addEventListener('keydown', (e) => {
+        if (e.key === 'Escape') closeLightbox();
+      });
+    }
+    overlay.querySelector('.lightbox-img').src = url;
+    overlay.querySelector('.lightbox-img').alt = name || '';
+    overlay.querySelector('.lightbox-open-original').href = url;
+    overlay.classList.add('open');
+  }
+
+  function closeLightbox() {
+    const overlay = $('#lightbox-overlay');
+    if (overlay) overlay.classList.remove('open');
   }
 
   function scrollToBottom() {
@@ -192,17 +232,43 @@ const Chat = (() => {
       return;
     }
     preview.classList.remove('hidden');
+
+    const showThumb = isImage(pendingFile.type) || isVideo(pendingFile.type);
+    pendingFileUrl = showThumb ? URL.createObjectURL(pendingFile) : null;
+
     preview.innerHTML = `
+      ${showThumb ? '<div class="attachment-preview-thumb-wrap"></div>' : ''}
       <span class="attachment-preview-name"></span>
       <span class="attachment-preview-size">${escapeHtml(formatBytes(pendingFile.size))}</span>
       <button type="button" class="attachment-preview-remove" id="attachment-preview-remove">✕</button>
     `;
+
+    if (showThumb) {
+      const wrap = preview.querySelector('.attachment-preview-thumb-wrap');
+      if (isImage(pendingFile.type)) {
+        const img = document.createElement('img');
+        img.src = pendingFileUrl;
+        img.className = 'attachment-preview-thumb';
+        wrap.appendChild(img);
+      } else {
+        const video = document.createElement('video');
+        video.src = pendingFileUrl;
+        video.className = 'attachment-preview-thumb';
+        video.muted = true;
+        wrap.appendChild(video);
+      }
+    }
+
     preview.querySelector('.attachment-preview-name').textContent = pendingFile.name;
     preview.querySelector('#attachment-preview-remove').addEventListener('click', clearPendingFile);
   }
 
   function clearPendingFile() {
     pendingFile = null;
+    if (pendingFileUrl) {
+      URL.revokeObjectURL(pendingFileUrl);
+      pendingFileUrl = null;
+    }
     $('#chat-file-input').value = '';
     renderPendingFile();
   }
