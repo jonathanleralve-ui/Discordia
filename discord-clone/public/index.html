@@ -161,7 +161,11 @@
       <div class="chat-messages" id="chat-messages"></div>
       <div class="typing-indicator" id="typing-indicator"></div>
 
+      <div id="attachment-preview" class="attachment-preview hidden"></div>
+
       <div class="chat-input-row">
+        <button class="btn-icon" id="chat-attach-btn" type="button" title="Attach file">📎</button>
+        <input type="file" id="chat-file-input" class="hidden" />
         <input type="text" id="chat-input" placeholder="Message..." maxlength="4000" />
         <button class="btn-primary" id="chat-send">Send</button>
       </div>

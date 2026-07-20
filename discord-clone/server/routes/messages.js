@@ -15,7 +15,15 @@ function formatMessage(m, senderMap) {
     senderName: sender ? sender.display_name : 'Unknown',
     senderColor: sender ? sender.avatar_color : '#5865F2',
     recipientId: m.recipient_id,
-    channelId: m.channel_id
+    channelId: m.channel_id,
+    attachment: m.attachment_url
+      ? {
+          url: m.attachment_url,
+          name: m.attachment_name,
+          type: m.attachment_type,
+          size: m.attachment_size
+        }
+      : null
   };
 }
 

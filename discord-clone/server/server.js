@@ -4,7 +4,7 @@ const path = require('path');
 const cors = require('cors');
 const { Server } = require('socket.io');
 
-const { PORT } = require('./config');
+const { PORT, UPLOAD_DIR } = require('./config');
 const db = require('./db');
 const initSockets = require('./sockets');
 
@@ -13,6 +13,7 @@ const friendRoutes = require('./routes/friends');
 const groupRoutes = require('./routes/groups');
 const channelRoutes = require('./routes/channels');
 const messageRoutes = require('./routes/messages');
+const uploadRoutes = require('./routes/upload');
 
 const app = express();
 const server = http.createServer(app);
@@ -21,12 +22,14 @@ const io = new Server(server);
 app.use(cors());
 app.use(express.json());
 app.use(express.static(path.join(__dirname, '..', 'public')));
+app.use('/uploads', express.static(UPLOAD_DIR));
 
 app.use('/api/auth', authRoutes);
 app.use('/api/friends', friendRoutes);
 app.use('/api/groups', groupRoutes);
 app.use('/api', channelRoutes); // exposes /api/groups/:groupId/channels and /api/channels/:channelId
 app.use('/api/messages', messageRoutes);
+app.use('/api/upload', uploadRoutes);
 
 app.get('/api/health', (req, res) => res.json({ ok: true }));
 

@@ -49,7 +49,21 @@ const Api = (() => {
 
   const messages = {
     dmHistory: (userId) => request(`/messages/dm/${userId}`),
-    channelHistory: (channelId) => request(`/messages/channel/${channelId}`)
+    channelHistory: (channelId) => request(`/messages/channel/${channelId}`),
+    // Multipart upload: don't set Content-Type ourselves, the browser needs
+    // to add the multipart boundary.
+    upload: (file) => {
+      const formData = new FormData();
+      formData.append('file', file);
+      const headers = {};
+      if (AppState.token) headers['Authorization'] = `Bearer ${AppState.token}`;
+      return fetch('/api/upload', { method: 'POST', headers, body: formData }).then(async (res) => {
+        let data = {};
+        try { data = await res.json(); } catch (e) { /* no body */ }
+        if (!res.ok) throw new Error(data.error || 'Upload failed');
+        return data;
+      });
+    }
   };
 
   return { request, auth, friends, groups, channels, messages };

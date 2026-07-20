@@ -1,6 +1,13 @@
+const path = require('path');
+
 module.exports = {
   JWT_SECRET: process.env.JWT_SECRET || 'dev-secret-change-me-in-production',
   PORT: process.env.PORT || 3000,
+
+  // Where uploaded chat attachments are stored on disk, and the max size
+  // (in MB) accepted per file.
+  UPLOAD_DIR: process.env.UPLOAD_DIR || path.join(__dirname, 'uploads'),
+  MAX_UPLOAD_MB: Number(process.env.MAX_UPLOAD_MB || 25),
 
   // Postgres connection. Either set DATABASE_URL directly, or the individual
   // PG* vars below (used by docker-compose out of the box).

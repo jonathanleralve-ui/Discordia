@@ -596,6 +596,70 @@ input { font-family: inherit; }
 
 .message-row.own .message-author { color: #a4b3ff; }
 
+.attachment-image-link { display: inline-block; margin-top: 6px; }
+.attachment-image {
+  max-width: 320px;
+  max-height: 320px;
+  border-radius: 8px;
+  display: block;
+  cursor: pointer;
+}
+
+.attachment-video {
+  max-width: 360px;
+  max-height: 320px;
+  border-radius: 8px;
+  display: block;
+  margin-top: 6px;
+}
+
+.attachment-file-chip {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-top: 6px;
+  padding: 10px 14px;
+  border-radius: 8px;
+  background: var(--bg-light);
+  max-width: 320px;
+  text-decoration: none;
+  color: var(--text-normal);
+}
+.attachment-file-chip:hover { background: var(--bg-lighter, #40444b); }
+.attachment-file-icon { font-size: 22px; flex-shrink: 0; }
+.attachment-file-info { display: flex; flex-direction: column; min-width: 0; }
+.attachment-file-name {
+  font-size: 14px;
+  font-weight: 500;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.attachment-file-size { font-size: 12px; color: var(--text-muted); }
+
+.attachment-preview {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: 0 16px;
+  padding: 8px 12px;
+  border-radius: 8px;
+  background: var(--bg-light);
+  font-size: 13px;
+}
+.attachment-preview-name { font-weight: 500; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.attachment-preview-size { color: var(--text-muted); flex-shrink: 0; }
+.attachment-preview-remove {
+  margin-left: auto;
+  background: none;
+  border: none;
+  color: var(--text-muted);
+  cursor: pointer;
+  font-size: 14px;
+  padding: 2px 6px;
+}
+.attachment-preview-remove:hover { color: var(--text-bright); }
+
 .typing-indicator {
   height: 20px;
   padding: 0 16px;
@@ -623,6 +687,23 @@ input { font-family: inherit; }
 .chat-input-row input:focus { outline: none; }
 
 .chat-input-row .btn-primary { width: auto; margin-top: 0; padding: 0 20px; }
+
+.btn-icon {
+  flex-shrink: 0;
+  width: 40px;
+  height: 40px;
+  border-radius: 8px;
+  border: none;
+  background: var(--bg-light);
+  color: var(--text-normal);
+  font-size: 18px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.btn-icon:hover { background: var(--bg-lighter, #40444b); }
+.btn-icon:disabled { opacity: 0.5; cursor: default; }
 
 /* Voice panel */
 .voice-panel {

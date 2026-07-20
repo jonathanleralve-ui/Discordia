@@ -30,8 +30,11 @@ services:
       PGUSER: chatter
       PGPASSWORD: chatter
       PGDATABASE: chatter
+    volumes:
+      - uploads_data:/app/server/uploads
     ports:
       - "3000:3000"
 
 volumes:
   db_data:
+  uploads_data:

@@ -80,6 +80,16 @@ CREATE TABLE IF NOT EXISTS messages (
 -- Messages now belong to a channel rather than directly to a group.
 ALTER TABLE messages ADD COLUMN IF NOT EXISTS channel_id INTEGER REFERENCES channels(id) ON DELETE CASCADE;
 
+-- A message may carry a single file attachment (image, video, or any other
+-- file) alongside or instead of text content.
+ALTER TABLE messages ADD COLUMN IF NOT EXISTS attachment_url TEXT;
+ALTER TABLE messages ADD COLUMN IF NOT EXISTS attachment_name TEXT;
+ALTER TABLE messages ADD COLUMN IF NOT EXISTS attachment_type TEXT;
+ALTER TABLE messages ADD COLUMN IF NOT EXISTS attachment_size INTEGER;
+
+-- content used to be required; attachment-only messages send an empty string.
+ALTER TABLE messages ALTER COLUMN content SET DEFAULT '';
+
 CREATE INDEX IF NOT EXISTS idx_messages_dm ON messages(sender_id, recipient_id);
 CREATE INDEX IF NOT EXISTS idx_messages_channel ON messages(channel_id);
 `;
