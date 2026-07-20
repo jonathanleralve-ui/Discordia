@@ -193,6 +193,7 @@ const Groups = (() => {
 
   function closeModals() {
     $('#modal-overlay').classList.add('hidden');
+    $('#select-group-action-modal').classList.add('hidden');
     $('#create-group-modal').classList.add('hidden');
     $('#add-member-modal').classList.add('hidden');
     $('#create-channel-modal').classList.add('hidden');
@@ -200,10 +201,18 @@ const Groups = (() => {
 
   function showModal(id) {
     $('#modal-overlay').classList.remove('hidden');
+    $('#select-group-action-modal').classList.add('hidden');
     $('#create-group-modal').classList.add('hidden');
     $('#add-member-modal').classList.add('hidden');
     $('#create-channel-modal').classList.add('hidden');
     $(`#${id}`).classList.remove('hidden');
+  }
+
+  // Shown when the "+" rail button is clicked — lets the user pick between
+  // creating a new group or joining an existing one before any group-specific
+  // modal opens.
+  function openSelectActionModal() {
+    showModal('select-group-action-modal');
   }
 
   function openAddMemberModal() {
@@ -253,7 +262,15 @@ const Groups = (() => {
   }
 
   function initUI() {
-    $('#rail-add-group').addEventListener('click', openCreateModal);
+    $('#rail-add-group').addEventListener('click', openSelectActionModal);
+
+    $('#select-group-action-cancel').addEventListener('click', closeModals);
+    $('#select-create-group').addEventListener('click', openCreateModal);
+    $('#select-join-group').addEventListener('click', () => {
+      // Joining an existing group isn't implemented yet — this is just the
+      // selector UI for now.
+      alert('Joining a group is coming soon!');
+    });
 
     $('#create-group-cancel').addEventListener('click', closeModals);
     $('#modal-overlay').addEventListener('click', (e) => {

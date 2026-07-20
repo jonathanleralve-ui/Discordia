@@ -174,7 +174,30 @@
 
 <!-- ============ MODALS ============ -->
 <div id="modal-overlay" class="modal-overlay hidden">
-  <div class="modal" id="create-group-modal">
+  <div class="modal hidden" id="select-group-action-modal">
+    <h2>Add a Group</h2>
+    <div class="action-select-options">
+      <button class="action-option-btn" id="select-create-group">
+        <div class="action-option-icon">➕</div>
+        <div class="action-option-text">
+          <div class="action-option-title">Create a Group</div>
+          <div class="action-option-desc">Start a brand new group for you and your friends</div>
+        </div>
+      </button>
+      <button class="action-option-btn" id="select-join-group">
+        <div class="action-option-icon">↳</div>
+        <div class="action-option-text">
+          <div class="action-option-title">Join a Group</div>
+          <div class="action-option-desc">Have an invite? Join an existing group</div>
+        </div>
+      </button>
+    </div>
+    <div class="modal-actions">
+      <button class="btn-secondary" id="select-group-action-cancel">Cancel</button>
+    </div>
+  </div>
+
+  <div class="modal hidden" id="create-group-modal">
     <h2>Create a Group</h2>
     <label>Group Name</label>
     <input type="text" id="create-group-name" placeholder="Awesome group" />
