@@ -250,7 +250,10 @@ const Groups = (() => {
     action.className = 'search-result-action';
     row.appendChild(action);
 
-    if (g.pendingRequest) {
+    if (g.isMember) {
+      action.classList.add('muted');
+      action.textContent = 'Already in it';
+    } else if (g.pendingRequest) {
       action.classList.add('muted');
       action.textContent = 'Waiting for approval';
     } else {

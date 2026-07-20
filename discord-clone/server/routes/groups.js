@@ -112,7 +112,9 @@ router.get('/:groupId/members', async (req, res) => {
   }
 });
 
-// Search groups by name, excluding ones the user already belongs to
+// Search groups by name — includes groups the user already belongs to
+// (flagged via isMember) so they show an "Already in it" tag instead of
+// being hidden entirely.
 router.get('/search', async (req, res) => {
   try {
     const q = String(req.query.q || '').trim().toLowerCase();
@@ -122,12 +124,14 @@ router.get('/search', async (req, res) => {
       `SELECT g.*,
               (SELECT COUNT(*) FROM group_members gm2 WHERE gm2.group_id = g.id) AS member_count,
               EXISTS (
+                SELECT 1 FROM group_members gm3 WHERE gm3.group_id = g.id AND gm3.user_id = $2
+              ) AS is_member,
+              EXISTS (
                 SELECT 1 FROM group_join_requests gjr
                 WHERE gjr.group_id = g.id AND gjr.user_id = $2 AND gjr.status = 'pending'
               ) AS pending_request
        FROM groups g
        WHERE g.name ILIKE $1
-         AND g.id NOT IN (SELECT group_id FROM group_members WHERE user_id = $2)
        ORDER BY g.name ASC
        LIMIT 10`,
       [`%${q}%`, req.user.id]
@@ -140,6 +144,7 @@ router.get('/search', async (req, res) => {
         iconColor: g.icon_color,
         ownerId: g.owner_id,
         memberCount: Number(g.member_count),
+        isMember: g.is_member,
         pendingRequest: g.pending_request
       }))
     });
