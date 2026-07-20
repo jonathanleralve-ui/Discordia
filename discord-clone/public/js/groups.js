@@ -232,7 +232,7 @@ const Groups = (() => {
 
   function buildJoinResultRow(g) {
     const row = document.createElement('div');
-    row.className = 'friend-row search-result-row clickable';
+    row.className = 'friend-row search-result-row';
 
     const icon = document.createElement('div');
     icon.className = 'avatar';
@@ -247,11 +247,22 @@ const Groups = (() => {
     row.appendChild(meta);
 
     const action = document.createElement('div');
-    action.className = 'search-result-action addable';
-    action.textContent = '+ Ask to Join';
+    action.className = 'search-result-action';
     row.appendChild(action);
 
-    row.addEventListener('click', () => joinFromSearch(g, row, action));
+    if (g.pendingRequest) {
+      action.classList.add('muted');
+      action.textContent = 'Waiting for approval';
+    } else {
+      action.classList.add('addable');
+      action.textContent = '+ Ask to Join';
+      row.classList.add('clickable');
+      row.addEventListener('click', () => {
+        if (!row.classList.contains('clickable')) return;
+        joinFromSearch(g, row, action);
+      });
+    }
+
     return row;
   }
 
@@ -262,8 +273,10 @@ const Groups = (() => {
     $('#join-group-error').textContent = '';
     Api.groups.requestJoin(g.id)
       .then(() => {
-        closeModals();
-        alert(`Request sent! A member of "${g.name}" needs to accept it in chat before you can access the group.`);
+        row.classList.remove('sending');
+        action.classList.remove('addable');
+        action.classList.add('muted');
+        action.textContent = 'Waiting for approval';
       })
       .catch((err) => {
         row.classList.remove('sending');

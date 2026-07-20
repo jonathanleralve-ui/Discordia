@@ -119,7 +119,12 @@ router.get('/search', async (req, res) => {
     if (!q) return res.json({ groups: [] });
 
     const result = await db.query(
-      `SELECT g.*, (SELECT COUNT(*) FROM group_members gm2 WHERE gm2.group_id = g.id) AS member_count
+      `SELECT g.*,
+              (SELECT COUNT(*) FROM group_members gm2 WHERE gm2.group_id = g.id) AS member_count,
+              EXISTS (
+                SELECT 1 FROM group_join_requests gjr
+                WHERE gjr.group_id = g.id AND gjr.user_id = $2 AND gjr.status = 'pending'
+              ) AS pending_request
        FROM groups g
        WHERE g.name ILIKE $1
          AND g.id NOT IN (SELECT group_id FROM group_members WHERE user_id = $2)
@@ -134,7 +139,8 @@ router.get('/search', async (req, res) => {
         name: g.name,
         iconColor: g.icon_color,
         ownerId: g.owner_id,
-        memberCount: Number(g.member_count)
+        memberCount: Number(g.member_count),
+        pendingRequest: g.pending_request
       }))
     });
   } catch (err) {
