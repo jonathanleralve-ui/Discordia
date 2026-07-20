@@ -1199,6 +1199,17 @@ input { font-family: inherit; }
 .action-option-title { color: var(--text-bright); font-weight: 600; font-size: 14px; }
 .action-option-desc { color: var(--text-muted); font-size: 12px; margin-top: 2px; }
 
+.color-swatch-list { display: flex; gap: 10px; margin-top: 6px; }
+.color-swatch {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  cursor: pointer;
+  border: 3px solid transparent;
+}
+.color-swatch:hover { border-color: var(--bg-lighter); }
+.color-swatch.selected { border-color: var(--text-bright); }
+
 /* Scrollbars */
 ::-webkit-scrollbar { width: 8px; }
 ::-webkit-scrollbar-track { background: transparent; }

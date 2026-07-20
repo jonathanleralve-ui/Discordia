@@ -109,6 +109,7 @@
         <div class="user-name" id="me-name"></div>
         <div class="user-status">Online</div>
       </div>
+      <button class="btn-icon" id="edit-profile-btn" title="Edit Profile">✎</button>
       <button class="btn-icon" id="logout-btn" title="Log out">⏻</button>
     </div>
   </div>
@@ -244,6 +245,19 @@
       <button class="btn-primary" id="create-channel-confirm">Create</button>
     </div>
   </div>
+
+  <div class="modal hidden" id="edit-profile-modal">
+    <h2>Edit Profile</h2>
+    <label>Display Name</label>
+    <input type="text" id="edit-profile-displayname" maxlength="32" placeholder="How others see you" />
+    <label>Avatar Color</label>
+    <div id="edit-profile-colors" class="color-swatch-list"></div>
+    <div class="auth-error" id="edit-profile-error"></div>
+    <div class="modal-actions">
+      <button class="btn-secondary" id="edit-profile-cancel">Cancel</button>
+      <button class="btn-primary" id="edit-profile-save">Save</button>
+    </div>
+  </div>
 </div>
 
 <script src="/socket.io/socket.io.js"></script>
@@ -256,6 +270,7 @@
 <script src="/js/groups.js"></script>
 <script src="/js/socket-client.js"></script>
 <script src="/js/auth.js"></script>
+<script src="/js/profile.js"></script>
 <script src="/js/app.js"></script>
 </body>
 </html>

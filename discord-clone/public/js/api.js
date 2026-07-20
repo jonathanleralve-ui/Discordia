@@ -17,7 +17,9 @@ const Api = (() => {
       request('/auth/login', { method: 'POST', body: JSON.stringify({ username, password }) }),
     register: (username, password, displayName) =>
       request('/auth/register', { method: 'POST', body: JSON.stringify({ username, password, displayName }) }),
-    me: () => request('/auth/me')
+    me: () => request('/auth/me'),
+    updateMe: (displayName, avatarColor) =>
+      request('/auth/me', { method: 'PATCH', body: JSON.stringify({ displayName, avatarColor }) })
   };
 
   const friends = {

@@ -96,4 +96,44 @@ router.get('/me', auth, async (req, res) => {
   }
 });
 
+router.patch('/me', auth, async (req, res) => {
+  try {
+    const { displayName, avatarColor } = req.body || {};
+    const updates = [];
+    const values = [];
+    let idx = 1;
+
+    if (displayName !== undefined) {
+      const name = String(displayName).trim();
+      if (!name) return res.status(400).json({ error: 'Display name cannot be empty' });
+      if (name.length > 32) return res.status(400).json({ error: 'Display name must be 32 characters or fewer' });
+      updates.push(`display_name = $${idx++}`);
+      values.push(name);
+    }
+
+    if (avatarColor !== undefined) {
+      if (!COLORS.includes(avatarColor)) {
+        return res.status(400).json({ error: 'Invalid avatar color' });
+      }
+      updates.push(`avatar_color = $${idx++}`);
+      values.push(avatarColor);
+    }
+
+    if (updates.length === 0) {
+      return res.status(400).json({ error: 'Nothing to update' });
+    }
+
+    values.push(req.user.id);
+    const result = await db.query(
+      `UPDATE users SET ${updates.join(', ')} WHERE id = $${idx} RETURNING *`,
+      values
+    );
+
+    res.json({ user: publicUser(result.rows[0]) });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Something went wrong, please try again' });
+  }
+});
+
 module.exports = router;

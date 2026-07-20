@@ -51,6 +51,7 @@ const App = (() => {
     Friends.initUI();
     Groups.initUI();
     Chat.initUI();
+    Profile.initUI();
     VoiceChat.initResizeHandle();
     Auth.tryResume();
   }
