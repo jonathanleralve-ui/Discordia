@@ -154,6 +154,23 @@
       </div>
     </div>
 
+    <div id="edit-profile-panel" class="profile-panel hidden">
+      <button class="btn-icon add-friend-close" id="edit-profile-close" title="Close">✕</button>
+      <div class="profile-panel-inner">
+        <h2>Edit Profile</h2>
+        <p class="profile-panel-sub">Update your name and avatar color.</p>
+        <label>Display Name</label>
+        <input type="text" id="edit-profile-displayname" maxlength="32" placeholder="How others see you" />
+        <label>Avatar Color</label>
+        <div id="edit-profile-colors" class="color-swatch-list"></div>
+        <div class="auth-error" id="edit-profile-error"></div>
+        <div class="profile-actions">
+          <button class="btn-secondary" id="edit-profile-cancel">Cancel</button>
+          <button class="btn-primary" id="edit-profile-save">Save</button>
+        </div>
+      </div>
+    </div>
+
     <div id="chat-panel" class="chat-panel hidden">
       <div class="chat-header">
         <span id="chat-title"></span>

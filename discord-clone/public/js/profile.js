@@ -30,14 +30,20 @@ const Profile = (() => {
     selectedColor = AppState.me.avatarColor;
     renderColors();
 
-    $('#modal-overlay').classList.remove('hidden');
-    $$('.modal').forEach((m) => m.classList.add('hidden'));
-    $('#edit-profile-modal').classList.remove('hidden');
+    $('#chat-panel').classList.add('hidden');
+    $('#empty-state').classList.add('hidden');
+    $('#add-friend-panel').classList.add('hidden');
+    $('#edit-profile-panel').classList.remove('hidden');
+    $('#edit-profile-displayname').focus();
   }
 
   function closeModal() {
-    $('#modal-overlay').classList.add('hidden');
-    $('#edit-profile-modal').classList.add('hidden');
+    $('#edit-profile-panel').classList.add('hidden');
+    if (AppState.activeChat) {
+      $('#chat-panel').classList.remove('hidden');
+    } else {
+      $('#empty-state').classList.remove('hidden');
+    }
   }
 
   function save() {
@@ -64,14 +70,10 @@ const Profile = (() => {
   function initUI() {
     $('#edit-profile-btn').addEventListener('click', openModal);
     $('#edit-profile-cancel').addEventListener('click', closeModal);
+    $('#edit-profile-close').addEventListener('click', closeModal);
     $('#edit-profile-save').addEventListener('click', save);
     $('#edit-profile-displayname').addEventListener('keydown', (e) => {
       if (e.key === 'Enter') save();
-    });
-    $('#modal-overlay').addEventListener('click', (e) => {
-      if (e.target === $('#modal-overlay') && !$('#edit-profile-modal').classList.contains('hidden')) {
-        closeModal();
-      }
     });
   }
 
