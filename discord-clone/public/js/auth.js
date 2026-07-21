@@ -67,8 +67,25 @@ const Auth = (() => {
     $('#register-password').addEventListener('keydown', (e) => { if (e.key === 'Enter') doRegister(); });
 
     $('#logout-btn').addEventListener('click', () => {
-      if (confirm('Are you sure you want to log out?')) {
-        logout();
+      $('#modal-overlay').classList.remove('hidden');
+      $('#logout-confirm-modal').classList.remove('hidden');
+    });
+
+    $('#logout-confirm-cancel').addEventListener('click', () => {
+      $('#logout-confirm-modal').classList.add('hidden');
+      $('#modal-overlay').classList.add('hidden');
+    });
+
+    $('#logout-confirm-confirm').addEventListener('click', () => {
+      $('#logout-confirm-modal').classList.add('hidden');
+      $('#modal-overlay').classList.add('hidden');
+      logout();
+    });
+
+    $('#modal-overlay').addEventListener('click', (e) => {
+      if (e.target === $('#modal-overlay') && !$('#logout-confirm-modal').classList.contains('hidden')) {
+        $('#logout-confirm-modal').classList.add('hidden');
+        $('#modal-overlay').classList.add('hidden');
       }
     });
   }
