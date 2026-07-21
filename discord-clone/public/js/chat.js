@@ -104,17 +104,30 @@ const Chat = (() => {
     });
     row.appendChild(av);
 
+    // The card is only ever shown inside the group being requested, so pull
+    // the server name/color and the current channel name from local state
+    // rather than the message payload.
+    const group = AppState.activeGroup;
+    const groupName = group ? group.name : 'this server';
+    const groupColor = group ? group.iconColor : 'var(--blurple)';
+    const channel = AppState.activeGroupChannels.find((c) => c.id === m.channelId);
+    const channelName = channel ? channel.name : (AppState.activeChat ? AppState.activeChat.name : 'general');
+    const isMe = m.senderId === AppState.me.id;
+
     const body = document.createElement('div');
     body.className = 'message-body';
     body.innerHTML = `
-      <div class="message-head">
-        <span class="message-author">${escapeHtml(m.senderName)}</span>
-        <span class="message-time">${formatTime(m.createdAt)}</span>
-      </div>
-      <div class="join-request-card">
-        <span class="join-request-text">wants to join this group</span>
-        <button type="button" class="btn-primary join-request-accept-btn">Accept</button>
-        <span class="join-request-resolved-label hidden">Accepted ✓</span>
+      <div class="invite-card">
+        <div class="invite-card-label">${isMe ? 'You sent an invite to join a server' : `${escapeHtml(m.senderName)} wants to join a server`}</div>
+        <div class="invite-card-body">
+          <div class="invite-card-icon" style="background: ${groupColor}">${escapeHtml(initials(groupName))}</div>
+          <div class="invite-card-info">
+            <div class="invite-card-server-name">${escapeHtml(groupName)}</div>
+            <div class="invite-card-channel"># ${escapeHtml(channelName)}</div>
+          </div>
+          <button type="button" class="btn-invite-accept join-request-accept-btn">Accept</button>
+          <span class="join-request-resolved-label hidden">Accepted ✓</span>
+        </div>
       </div>
     `;
     row.appendChild(body);

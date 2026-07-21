@@ -765,19 +765,67 @@ input { font-family: inherit; }
 
 .message-row.own .message-author { color: #a4b3ff; }
 
-.join-request-card {
+.invite-card {
+  margin-top: 2px;
+  width: fit-content;
+  max-width: 420px;
+}
+.invite-card-label {
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.02em;
+  color: var(--text-muted);
+  margin-bottom: 6px;
+}
+.invite-card-body {
   display: flex;
   align-items: center;
-  gap: 10px;
-  margin-top: 2px;
-  padding: 10px 12px;
+  gap: 12px;
+  padding: 12px 14px;
   background: var(--bg-darkest);
   border: 1px solid var(--border);
   border-radius: 8px;
-  width: fit-content;
 }
-.join-request-text { font-size: 14px; color: var(--text-normal); }
-.join-request-accept-btn { padding: 6px 14px; font-size: 13px; }
+.invite-card-icon {
+  flex-shrink: 0;
+  width: 48px;
+  height: 48px;
+  border-radius: 16px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #ffffff;
+  font-size: 16px;
+  font-weight: 700;
+}
+.invite-card-info { flex: 1; min-width: 0; }
+.invite-card-server-name {
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--text-bright);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.invite-card-channel {
+  font-size: 13px;
+  color: var(--text-muted);
+  margin-top: 2px;
+}
+.btn-invite-accept {
+  flex-shrink: 0;
+  padding: 8px 18px;
+  border-radius: 4px;
+  border: none;
+  background: var(--green);
+  color: #ffffff;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+}
+.btn-invite-accept:hover { filter: brightness(1.08); }
+.btn-invite-accept:disabled { opacity: 0.6; cursor: default; }
 .join-request-resolved-label { font-size: 13px; font-weight: 600; color: var(--green); }
 
 .attachment-image-link { display: inline-block; margin-top: 6px; cursor: zoom-in; }
