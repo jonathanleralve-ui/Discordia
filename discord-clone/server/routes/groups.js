@@ -12,6 +12,7 @@ function publicUser(u) {
     displayName: u.display_name,
     avatarColor: u.avatar_color,
     avatarUrl: u.avatar_url,
+    nameColor: u.name_color,
     status: u.status
   };
 }

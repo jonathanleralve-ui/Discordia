@@ -39,5 +39,11 @@ const Utils = (() => {
     return avatarEl(user);
   }
 
-  return { $, $$, initials, escapeHtml, formatTime, avatarEl, avatarWithStatus };
+  function applyNameColor(el, color) {
+    if (color && /^#[0-9a-fA-F]{6}$/.test(color)) {
+      el.style.color = color;
+    }
+  }
+
+  return { $, $$, initials, escapeHtml, formatTime, avatarEl, avatarWithStatus, applyNameColor };
 })();

@@ -1,7 +1,7 @@
 // Friends list (online/all/pending tabs), friend requests, and the
 // "Add Friend" form.
 const Friends = (() => {
-  const { $, $$, escapeHtml, avatarEl, avatarWithStatus } = Utils;
+  const { $, $$, escapeHtml, avatarEl, avatarWithStatus, applyNameColor } = Utils;
 
   function refresh() {
     return Api.friends.list().then((data) => {
@@ -62,6 +62,7 @@ const Friends = (() => {
       const meta = document.createElement('div');
       meta.className = 'friend-meta';
       meta.innerHTML = `<div class="friend-name">${escapeHtml(f.displayName)}</div><div class="friend-sub">${f.status === 'online' ? 'Online' : 'Offline'}</div>`;
+      applyNameColor(meta.querySelector('.friend-name'), f.nameColor);
       row.appendChild(meta);
       row.addEventListener('click', () => Chat.openDM(f));
       el.appendChild(row);

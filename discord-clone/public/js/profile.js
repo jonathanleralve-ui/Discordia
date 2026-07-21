@@ -93,7 +93,7 @@ const Profile = (() => {
       // Do not send avatarColor (removed from UI) so pass undefined
       Api.auth.updateMe(displayName, undefined, avatarUrl, selectedNameColor)
         .then((data) => {
-          AppState.me = data.user;
+          Object.assign(AppState.me, data.user);
           $('#me-name').textContent = AppState.me.displayName;
           $('#me-name').style.color = AppState.me.nameColor || '';
           const meAvatar = $('#me-avatar');

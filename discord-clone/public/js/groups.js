@@ -1,7 +1,7 @@
 // Group rail icons, the channel list + member list shown when a group is
 // open, and the create-group / add-member / create-channel modals.
 const Groups = (() => {
-  const { $, $$, escapeHtml, initials, avatarWithStatus } = Utils;
+  const { $, $$, escapeHtml, initials, avatarWithStatus, applyNameColor } = Utils;
 
   let createChannelType = 'text';
   let pendingRenameChannel = null;
@@ -202,6 +202,7 @@ const Groups = (() => {
       meta.className = 'friend-meta';
       const ownerLabel = m.id === AppState.activeGroup.ownerId ? ' 👑' : '';
       meta.innerHTML = `<div class="friend-name">${escapeHtml(m.displayName)}${m.id === AppState.me.id ? ' (you)' : ''}${ownerLabel}</div>`;
+      applyNameColor(meta.querySelector('.friend-name'), m.nameColor);
       row.appendChild(meta);
       el.appendChild(row);
     });
