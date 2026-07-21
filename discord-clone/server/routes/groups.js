@@ -311,6 +311,44 @@ router.post('/:groupId/join-requests/:requestId/accept', async (req, res) => {
   }
 });
 
+// Decline a pending join request (any existing member can do this)
+router.post('/:groupId/join-requests/:requestId/decline', async (req, res) => {
+  try {
+    const uid = req.user.id;
+    const groupId = Number(req.params.groupId);
+    const requestId = Number(req.params.requestId);
+
+    const memberCheck = await db.query(
+      'SELECT 1 FROM group_members WHERE group_id = $1 AND user_id = $2',
+      [groupId, uid]
+    );
+    if (memberCheck.rows.length === 0) return res.status(403).json({ error: 'Not a member of this group' });
+
+    const requestResult = await db.query(
+      'SELECT * FROM group_join_requests WHERE id = $1 AND group_id = $2',
+      [requestId, groupId]
+    );
+    const request = requestResult.rows[0];
+    if (!request) return res.status(404).json({ error: 'Join request not found' });
+    if (request.status !== 'pending') return res.status(400).json({ error: 'This request was already resolved' });
+
+    await db.query(`UPDATE group_join_requests SET status = 'declined' WHERE id = $1`, [requestId]);
+
+    const io = req.app.get('io');
+
+    const msgResult = await db.query('SELECT channel_id FROM messages WHERE join_request_id = $1 LIMIT 1', [requestId]);
+    const channelId = msgResult.rows[0] && msgResult.rows[0].channel_id;
+    if (channelId) {
+      io.to(`channel:${channelId}`).emit('group:join-request-resolved', { requestId, groupId, status: 'declined' });
+    }
+
+    res.json({ ok: true });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Something went wrong, please try again' });
+  }
+});
+
 // Add a friend to a group
 router.post('/:groupId/members', async (req, res) => {
   try {

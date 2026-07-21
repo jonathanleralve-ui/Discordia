@@ -73,7 +73,7 @@ CREATE TABLE IF NOT EXISTS group_join_requests (
   id SERIAL PRIMARY KEY,
   group_id INTEGER NOT NULL REFERENCES groups(id) ON DELETE CASCADE,
   user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-  status TEXT NOT NULL DEFAULT 'pending', -- pending | accepted
+  status TEXT NOT NULL DEFAULT 'pending', -- pending | accepted | declined
   created_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 

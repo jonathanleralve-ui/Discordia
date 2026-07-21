@@ -39,6 +39,8 @@ const Api = (() => {
     requestJoin: (groupId) => request(`/groups/${groupId}/join-requests`, { method: 'POST' }),
     acceptJoinRequest: (groupId, requestId) =>
       request(`/groups/${groupId}/join-requests/${requestId}/accept`, { method: 'POST' }),
+    declineJoinRequest: (groupId, requestId) =>
+      request(`/groups/${groupId}/join-requests/${requestId}/decline`, { method: 'POST' }),
     members: (groupId) => request(`/groups/${groupId}/members`),
     addMember: (groupId, userId) =>
       request(`/groups/${groupId}/members`, { method: 'POST', body: JSON.stringify({ userId }) }),

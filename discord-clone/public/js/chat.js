@@ -131,7 +131,9 @@ const Chat = (() => {
             <div class="invite-card-channel"># ${escapeHtml(channelName)}</div>
           </div>
           <button type="button" class="btn-invite-accept join-request-accept-btn">Accept</button>
+          <button type="button" class="btn-invite-decline join-request-decline-btn">Decline</button>
           <span class="join-request-resolved-label hidden">Accepted ✓</span>
+          <span class="join-request-declined-label hidden">Declined ✕</span>
         </div>
       </div>
     `;
@@ -153,18 +155,42 @@ const Chat = (() => {
         });
     });
 
+    body.querySelector('.join-request-decline-btn').addEventListener('click', () => {
+      const btn = body.querySelector('.join-request-decline-btn');
+      btn.disabled = true;
+      btn.textContent = 'Declining...';
+      Api.groups.declineJoinRequest(m.joinRequest.groupId, m.joinRequest.id)
+        .then(() => applyJoinRequestState(row, { status: 'declined' }))
+        .catch((err) => {
+          btn.disabled = false;
+          btn.textContent = 'Decline';
+          alert(err.message);
+        });
+    });
+
     scrollToBottom();
   }
 
   function applyJoinRequestState(row, joinRequest) {
-    const btn = row.querySelector('.join-request-accept-btn');
-    const label = row.querySelector('.join-request-resolved-label');
+    const acceptBtn = row.querySelector('.join-request-accept-btn');
+    const declineBtn = row.querySelector('.join-request-decline-btn');
+    const acceptedLabel = row.querySelector('.join-request-resolved-label');
+    const declinedLabel = row.querySelector('.join-request-declined-label');
     if (joinRequest.status === 'accepted') {
-      btn.classList.add('hidden');
-      label.classList.remove('hidden');
+      acceptBtn.classList.add('hidden');
+      declineBtn.classList.add('hidden');
+      acceptedLabel.classList.remove('hidden');
+      declinedLabel.classList.add('hidden');
+    } else if (joinRequest.status === 'declined') {
+      acceptBtn.classList.add('hidden');
+      declineBtn.classList.add('hidden');
+      acceptedLabel.classList.add('hidden');
+      declinedLabel.classList.remove('hidden');
     } else {
-      btn.classList.remove('hidden');
-      label.classList.add('hidden');
+      acceptBtn.classList.remove('hidden');
+      declineBtn.classList.remove('hidden');
+      acceptedLabel.classList.add('hidden');
+      declinedLabel.classList.add('hidden');
     }
   }
 
