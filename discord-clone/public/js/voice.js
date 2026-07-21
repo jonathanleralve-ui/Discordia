@@ -402,10 +402,10 @@ const VoiceChat = (() => {
     list.innerHTML = '';
 
     if (connectedChannelId) {
-      list.appendChild(participantTile('self', me.displayName, me.avatarColor, muted, sharingScreen, true, me.avatarUrl));
+      list.appendChild(participantTile('self', me.displayName, me.avatarColor, muted, sharingScreen, true, me.avatarUrl, me.nameColor));
     }
     Object.entries(peers).forEach(([socketId, { info }]) => {
-      list.appendChild(participantTile(socketId, info.displayName, info.avatarColor, !!info.muted, info.sharing, false, info.avatarUrl));
+      list.appendChild(participantTile(socketId, info.displayName, info.avatarColor, !!info.muted, info.sharing, false, info.avatarUrl, info.nameColor));
     });
 
     if (list.children.length === 0) {
@@ -413,7 +413,7 @@ const VoiceChat = (() => {
     }
   }
 
-  function participantTile(key, name, color, isMuted, isSharing, isSelf, avatarUrl) {
+  function participantTile(key, name, color, isMuted, isSharing, isSelf, avatarUrl, nameColor) {
     const tile = document.createElement('div');
     tile.className = 'voice-tile';
     tile.dataset.speaker = key;
@@ -441,6 +441,9 @@ const VoiceChat = (() => {
     const label = document.createElement('div');
     label.className = 'voice-tile-name';
     label.textContent = name + (isSelf ? ' (you)' : '');
+    if (nameColor && /^#[0-9a-fA-F]{6}$/.test(nameColor)) {
+      label.style.color = nameColor;
+    }
 
     tile.appendChild(ring);
     tile.appendChild(label);
