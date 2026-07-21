@@ -7,6 +7,36 @@ const Profile = (() => {
   // avatar color selection removed
   let selectedAvatarUrl = null;
   let pendingAvatarFile = null;
+  let selectedNameColor = null;
+
+  const NAME_COLORS = ['#5865F2', '#EB459E', '#57F287', '#FEE75C', '#ED4245', '#3BA55D', '#FAA61A'];
+
+  function renderNameColorSwatches() {
+    const list = $('#edit-profile-namecolor-list');
+    list.innerHTML = '';
+
+    const defaultSwatch = document.createElement('div');
+    defaultSwatch.className = `color-swatch${selectedNameColor ? '' : ' selected'}`;
+    defaultSwatch.style.background = 'var(--text-normal)';
+    defaultSwatch.title = 'Default';
+    defaultSwatch.addEventListener('click', () => {
+      selectedNameColor = null;
+      renderNameColorSwatches();
+    });
+    list.appendChild(defaultSwatch);
+
+    NAME_COLORS.forEach((color) => {
+      const swatch = document.createElement('div');
+      swatch.className = `color-swatch${selectedNameColor === color ? ' selected' : ''}`;
+      swatch.style.background = color;
+      swatch.title = color;
+      swatch.addEventListener('click', () => {
+        selectedNameColor = color;
+        renderNameColorSwatches();
+      });
+      list.appendChild(swatch);
+    });
+  }
 
   function renderPhotoPreview() {
     const preview = $('#edit-profile-photo-preview');
@@ -29,7 +59,9 @@ const Profile = (() => {
     $('#edit-profile-displayname').value = AppState.me.displayName;
     selectedAvatarUrl = AppState.me.avatarUrl || null;
     pendingAvatarFile = null;
+    selectedNameColor = AppState.me.nameColor || null;
     renderPhotoPreview();
+    renderNameColorSwatches();
 
     $('#chat-panel').classList.add('hidden');
     $('#empty-state').classList.add('hidden');
@@ -59,10 +91,11 @@ const Profile = (() => {
 
     const finalizeSave = (avatarUrl) => {
       // Do not send avatarColor (removed from UI) so pass undefined
-      Api.auth.updateMe(displayName, undefined, avatarUrl)
+      Api.auth.updateMe(displayName, undefined, avatarUrl, selectedNameColor)
         .then((data) => {
           AppState.me = data.user;
           $('#me-name').textContent = AppState.me.displayName;
+          $('#me-name').style.color = AppState.me.nameColor || '';
           const meAvatar = $('#me-avatar');
           meAvatar.style.background = AppState.me.avatarColor;
           if (AppState.me.avatarUrl) {

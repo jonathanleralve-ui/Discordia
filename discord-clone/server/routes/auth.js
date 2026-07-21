@@ -19,6 +19,7 @@ function publicUser(u) {
     displayName: u.display_name,
     avatarColor: u.avatar_color,
     avatarUrl: u.avatar_url,
+    nameColor: u.name_color,
     status: u.status
   };
 }
@@ -99,7 +100,7 @@ router.get('/me', auth, async (req, res) => {
 
 router.patch('/me', auth, async (req, res) => {
   try {
-    const { displayName, avatarColor, avatarUrl } = req.body || {};
+    const { displayName, avatarColor, avatarUrl, nameColor } = req.body || {};
     const updates = [];
     const values = [];
     let idx = 1;
@@ -123,6 +124,14 @@ router.patch('/me', auth, async (req, res) => {
     if (avatarUrl !== undefined) {
       updates.push(`avatar_url = $${idx++}`);
       values.push(avatarUrl || null);
+    }
+
+    if (nameColor !== undefined) {
+      if (nameColor !== null && !COLORS.includes(nameColor)) {
+        return res.status(400).json({ error: 'Invalid name color' });
+      }
+      updates.push(`name_color = $${idx++}`);
+      values.push(nameColor || null);
     }
 
     if (updates.length === 0) {

@@ -18,8 +18,8 @@ const Api = (() => {
     register: (username, password, displayName) =>
       request('/auth/register', { method: 'POST', body: JSON.stringify({ username, password, displayName }) }),
     me: () => request('/auth/me'),
-    updateMe: (displayName, avatarColor, avatarUrl) =>
-      request('/auth/me', { method: 'PATCH', body: JSON.stringify({ displayName, avatarColor, avatarUrl }) })
+    updateMe: (displayName, avatarColor, avatarUrl, nameColor) =>
+      request('/auth/me', { method: 'PATCH', body: JSON.stringify({ displayName, avatarColor, avatarUrl, nameColor }) })
   };
 
   const friends = {

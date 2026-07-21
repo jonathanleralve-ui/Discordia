@@ -27,6 +27,7 @@ const App = (() => {
     $('#app-screen').classList.remove('hidden');
 
     $('#me-name').textContent = AppState.me.displayName;
+    $('#me-name').style.color = (AppState.me.nameColor && /^#[0-9a-fA-F]{6}$/.test(AppState.me.nameColor)) ? AppState.me.nameColor : '';
     const meAvatar = $('#me-avatar');
     meAvatar.style.background = AppState.me.avatarColor;
     if (AppState.me.avatarUrl) {

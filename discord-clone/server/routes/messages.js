@@ -15,6 +15,7 @@ function formatMessage(m, senderMap) {
     senderName: sender ? sender.display_name : 'Unknown',
     senderColor: sender ? sender.avatar_color : '#5865F2',
     senderAvatarUrl: sender ? sender.avatar_url : null,
+    senderNameColor: sender ? sender.name_color : null,
     recipientId: m.recipient_id,
     channelId: m.channel_id,
     messageType: m.message_type || 'text',
@@ -35,7 +36,7 @@ function formatMessage(m, senderMap) {
 async function buildSenderMap(messages) {
   const ids = [...new Set(messages.map((m) => m.sender_id))];
   if (ids.length === 0) return {};
-  const result = await db.query('SELECT id, display_name, avatar_color, avatar_url FROM users WHERE id = ANY($1)', [ids]);
+  const result = await db.query('SELECT id, display_name, avatar_color, avatar_url, name_color FROM users WHERE id = ANY($1)', [ids]);
   const map = {};
   result.rows.forEach((r) => (map[r.id] = r));
   return map;

@@ -31,6 +31,11 @@ CREATE TABLE IF NOT EXISTS users (
 
 ALTER TABLE users ADD COLUMN IF NOT EXISTS avatar_url TEXT;
 
+-- Lets a user pick a color for their display name (shown next to messages
+-- in DMs and group channels), independent of their avatar background color.
+-- NULL means "use the default text color".
+ALTER TABLE users ADD COLUMN IF NOT EXISTS name_color TEXT;
+
 CREATE TABLE IF NOT EXISTS friendships (
   id SERIAL PRIMARY KEY,
   requester_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,

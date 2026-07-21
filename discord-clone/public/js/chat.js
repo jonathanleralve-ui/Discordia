@@ -91,6 +91,9 @@ const Chat = (() => {
     `;
     if (m.content) body.querySelector('.message-content').textContent = m.content;
     if (m.attachment) body.appendChild(renderAttachment(m.attachment));
+    if (m.senderNameColor && /^#[0-9a-fA-F]{6}$/.test(m.senderNameColor)) {
+      body.querySelector('.message-author').style.color = m.senderNameColor;
+    }
     row.appendChild(body);
 
     // Own message, whatever it contains (text, image, video, or any other
