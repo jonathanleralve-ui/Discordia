@@ -121,11 +121,15 @@ const VoiceChat = (() => {
     try {
       localMicStream = await navigator.mediaDevices.getUserMedia({ audio: true });
     } catch (err) {
-      alert("Couldn't access your microphone: " + err.message);
-      return;
+      // No mic, permission denied, or no device at all — that's fine, the
+      // user can still join and listen. They just won't transmit audio
+      // until/unless a mic becomes available (e.g. re-granting permission
+      // and rejoining).
+      console.warn('Joining voice without a microphone:', err.message);
+      localMicStream = null;
     }
 
-    muted = false;
+    muted = !localMicStream;
     connectedChannelId = channelId;
     connectedChannelName = channelName;
     connectedGroupId = groupId;
@@ -134,7 +138,7 @@ const VoiceChat = (() => {
 
     $('#edit-profile-panel').classList.add('hidden');
 
-    startSpeakingDetection('self', localMicStream);
+    if (localMicStream) startSpeakingDetection('self', localMicStream);
 
     if (typeof Groups !== 'undefined') Groups.refreshChannelHighlight();
     refreshPanelForGroup(openGroupId);
@@ -564,6 +568,14 @@ const VoiceChat = (() => {
   function updateMuteButton() {
     const btn = $('#voice-mute-btn');
     if (!btn) return;
+    if (!localMicStream) {
+      btn.textContent = '🔇';
+      btn.title = 'No microphone — listening only';
+      btn.disabled = true;
+      btn.classList.remove('active-danger');
+      return;
+    }
+    btn.disabled = false;
     btn.textContent = muted ? '🔇' : '🎙️';
     btn.title = muted ? 'Unmute' : 'Mute';
     btn.classList.toggle('active-danger', muted);
