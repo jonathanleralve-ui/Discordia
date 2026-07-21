@@ -7,7 +7,7 @@ module.exports = {
   // Where uploaded chat attachments are stored on disk, and the max size
   // (in MB) accepted per file.
   UPLOAD_DIR: process.env.UPLOAD_DIR || path.join(__dirname, 'uploads'),
-  MAX_UPLOAD_MB: Number(process.env.MAX_UPLOAD_MB || 25),
+  MAX_UPLOAD_MB: Number(process.env.MAX_UPLOAD_MB || 1024),
 
   // Postgres connection. Either set DATABASE_URL directly, or the individual
   // PG* vars below (used by docker-compose out of the box).

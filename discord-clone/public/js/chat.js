@@ -8,7 +8,7 @@ const Chat = (() => {
   const typingClearTimers = {};
   let pendingFile = null;
   let pendingFileUrl = null;
-  const MAX_UPLOAD_MB = 25;
+  const MAX_UPLOAD_MB = 1024;
 
   function openDM(friend) {
     AppState.activeGroup = null;
