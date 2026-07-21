@@ -42,6 +42,8 @@ const Api = (() => {
     members: (groupId) => request(`/groups/${groupId}/members`),
     addMember: (groupId, userId) =>
       request(`/groups/${groupId}/members`, { method: 'POST', body: JSON.stringify({ userId }) }),
+    rename: (groupId, name) =>
+      request(`/groups/${groupId}`, { method: 'PATCH', body: JSON.stringify({ name }) }),
     leave: (groupId) => request(`/groups/${groupId}/members/me`, { method: 'DELETE' })
   };
 

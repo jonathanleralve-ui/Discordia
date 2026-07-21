@@ -88,6 +88,7 @@
       <div class="group-panel-header">
         <span id="group-panel-title"></span>
         <div class="group-panel-actions">
+          <button class="btn-icon" id="group-settings-btn" title="Group Settings">⚙</button>
           <button class="btn-icon" id="group-add-member-btn" title="Add friend to group">+</button>
           <button class="btn-icon" id="group-leave-btn" title="Leave group">⎋</button>
         </div>
@@ -286,6 +287,17 @@
     <div class="modal-actions">
       <button class="btn-secondary" id="delete-channel-cancel">Cancel</button>
       <button class="btn-primary" id="delete-channel-confirm">Delete</button>
+    </div>
+  </div>
+
+  <div class="modal hidden" id="group-settings-modal">
+    <h2>Group Settings</h2>
+    <label>Group Name</label>
+    <input type="text" id="group-settings-name" maxlength="50" placeholder="Group name" />
+    <div class="auth-error" id="group-settings-error"></div>
+    <div class="modal-actions">
+      <button class="btn-secondary" id="group-settings-cancel">Cancel</button>
+      <button class="btn-primary" id="group-settings-save">Save</button>
     </div>
   </div>
 

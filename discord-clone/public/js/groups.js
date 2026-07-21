@@ -225,6 +225,7 @@ const Groups = (() => {
     $('#create-channel-modal').classList.add('hidden');
     $('#rename-channel-modal').classList.add('hidden');
     $('#delete-channel-modal').classList.add('hidden');
+    $('#group-settings-modal').classList.add('hidden');
   }
 
   function showModal(id) {
@@ -236,6 +237,7 @@ const Groups = (() => {
     $('#create-channel-modal').classList.add('hidden');
     $('#rename-channel-modal').classList.add('hidden');
     $('#delete-channel-modal').classList.add('hidden');
+    $('#group-settings-modal').classList.add('hidden');
     $(`#${id}`).classList.remove('hidden');
   }
 
@@ -435,6 +437,34 @@ const Groups = (() => {
     $('#channel-type-voice').classList.toggle('active', type === 'voice');
   }
 
+  function openGroupSettingsModal() {
+    if (!AppState.activeGroup) return;
+    $('#group-settings-name').value = AppState.activeGroup.name;
+    $('#group-settings-error').textContent = '';
+    showModal('group-settings-modal');
+    $('#group-settings-name').focus();
+  }
+
+  function saveGroupSettings() {
+    const name = $('#group-settings-name').value.trim();
+    $('#group-settings-error').textContent = '';
+    if (!name) { $('#group-settings-error').textContent = 'Group name is required'; return; }
+
+    const groupId = AppState.activeGroup.id;
+    Api.groups.rename(groupId, name)
+      .then(({ group }) => {
+        AppState.activeGroup = group;
+        $('#group-panel-title').textContent = group.name;
+        $('#sidebar-header').textContent = group.name;
+        closeModals();
+        return refresh().then(() => {
+          const el = document.querySelector(`.rail-item[data-group-id="${group.id}"]`);
+          if (el) App.setActiveRail(el);
+        });
+      })
+      .catch((err) => { $('#group-settings-error').textContent = err.message; });
+  }
+
   function leaveActiveGroup() {
     if (!AppState.activeGroup) return;
     if (!confirm(`Leave "${AppState.activeGroup.name}"?`)) return;
@@ -507,6 +537,13 @@ const Groups = (() => {
           });
         })
         .catch((err) => alert(err.message));
+    });
+
+    $('#group-settings-btn').addEventListener('click', openGroupSettingsModal);
+    $('#group-settings-cancel').addEventListener('click', closeModals);
+    $('#group-settings-save').addEventListener('click', saveGroupSettings);
+    $('#group-settings-name').addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') saveGroupSettings();
     });
 
     $('#group-add-member-btn').addEventListener('click', openAddMemberModal);

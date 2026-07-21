@@ -90,6 +90,33 @@ router.post('/', async (req, res) => {
   }
 });
 
+// Rename a group — any group member can do it, same as channels
+router.patch('/:groupId', async (req, res) => {
+  try {
+    const uid = req.user.id;
+    const groupId = Number(req.params.groupId);
+
+    const memberCheck = await db.query(
+      'SELECT 1 FROM group_members WHERE group_id = $1 AND user_id = $2',
+      [groupId, uid]
+    );
+    if (memberCheck.rows.length === 0) return res.status(403).json({ error: 'Only group members can rename this group' });
+
+    const { name } = req.body || {};
+    const cleanName = String(name || '').trim().slice(0, 50);
+    if (!cleanName) return res.status(400).json({ error: 'Group name is required' });
+
+    const updated = await db.query('UPDATE groups SET name = $2 WHERE id = $1 RETURNING *', [groupId, cleanName]);
+    const group = updated.rows[0];
+    if (!group) return res.status(404).json({ error: 'Group not found' });
+
+    res.json({ group: { id: group.id, name: group.name, iconColor: group.icon_color, ownerId: group.owner_id } });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Something went wrong, please try again' });
+  }
+});
+
 // Get members of a group (must be a member)
 router.get('/:groupId/members', async (req, res) => {
   try {
