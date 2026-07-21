@@ -176,6 +176,21 @@
       </div>
     </div>
 
+    <div id="group-settings-panel" class="profile-panel hidden">
+      <button class="btn-icon add-friend-close" id="group-settings-close" title="Close">✕</button>
+      <div class="profile-panel-inner">
+        <h2>Group Settings</h2>
+        <p class="profile-panel-sub">Update this group's name.</p>
+        <label>Group Name</label>
+        <input type="text" id="group-settings-name" maxlength="50" placeholder="Group name" />
+        <div class="auth-error" id="group-settings-error"></div>
+        <div class="profile-actions">
+          <button class="btn-secondary" id="group-settings-cancel">Cancel</button>
+          <button class="btn-primary" id="group-settings-save">Save</button>
+        </div>
+      </div>
+    </div>
+
     <div id="chat-panel" class="chat-panel hidden">
       <div class="chat-header">
         <span id="chat-title"></span>
@@ -286,17 +301,6 @@
     <div class="modal-actions">
       <button class="btn-secondary" id="delete-channel-cancel">Cancel</button>
       <button class="btn-primary" id="delete-channel-confirm">Delete</button>
-    </div>
-  </div>
-
-  <div class="modal hidden" id="group-settings-modal">
-    <h2>Group Settings</h2>
-    <label>Group Name</label>
-    <input type="text" id="group-settings-name" maxlength="50" placeholder="Group name" />
-    <div class="auth-error" id="group-settings-error"></div>
-    <div class="modal-actions">
-      <button class="btn-secondary" id="group-settings-cancel">Cancel</button>
-      <button class="btn-primary" id="group-settings-save">Save</button>
     </div>
   </div>
 

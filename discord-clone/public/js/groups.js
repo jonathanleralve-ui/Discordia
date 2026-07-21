@@ -224,7 +224,6 @@ const Groups = (() => {
     $('#create-channel-modal').classList.add('hidden');
     $('#rename-channel-modal').classList.add('hidden');
     $('#delete-channel-modal').classList.add('hidden');
-    $('#group-settings-modal').classList.add('hidden');
   }
 
   function showModal(id) {
@@ -236,7 +235,6 @@ const Groups = (() => {
     $('#create-channel-modal').classList.add('hidden');
     $('#rename-channel-modal').classList.add('hidden');
     $('#delete-channel-modal').classList.add('hidden');
-    $('#group-settings-modal').classList.add('hidden');
     $(`#${id}`).classList.remove('hidden');
   }
 
@@ -436,12 +434,26 @@ const Groups = (() => {
     $('#channel-type-voice').classList.toggle('active', type === 'voice');
   }
 
-  function openGroupSettingsModal() {
+  function openGroupSettingsPanel() {
     if (!AppState.activeGroup) return;
     $('#group-settings-name').value = AppState.activeGroup.name;
     $('#group-settings-error').textContent = '';
-    showModal('group-settings-modal');
+
+    $('#chat-panel').classList.add('hidden');
+    $('#empty-state').classList.add('hidden');
+    $('#add-friend-panel').classList.add('hidden');
+    $('#edit-profile-panel').classList.add('hidden');
+    $('#group-settings-panel').classList.remove('hidden');
     $('#group-settings-name').focus();
+  }
+
+  function closeGroupSettingsPanel() {
+    $('#group-settings-panel').classList.add('hidden');
+    if (AppState.activeChat) {
+      $('#chat-panel').classList.remove('hidden');
+    } else {
+      $('#empty-state').classList.remove('hidden');
+    }
   }
 
   function saveGroupSettings() {
@@ -454,7 +466,7 @@ const Groups = (() => {
       .then(({ group }) => {
         AppState.activeGroup = group;
         $('#sidebar-header').textContent = group.name;
-        closeModals();
+        closeGroupSettingsPanel();
         return refresh().then(() => {
           const el = document.querySelector(`.rail-item[data-group-id="${group.id}"]`);
           if (el) App.setActiveRail(el);
@@ -537,8 +549,9 @@ const Groups = (() => {
         .catch((err) => alert(err.message));
     });
 
-    $('#group-settings-btn').addEventListener('click', openGroupSettingsModal);
-    $('#group-settings-cancel').addEventListener('click', closeModals);
+    $('#group-settings-btn').addEventListener('click', openGroupSettingsPanel);
+    $('#group-settings-cancel').addEventListener('click', closeGroupSettingsPanel);
+    $('#group-settings-close').addEventListener('click', closeGroupSettingsPanel);
     $('#group-settings-save').addEventListener('click', saveGroupSettings);
     $('#group-settings-name').addEventListener('keydown', (e) => {
       if (e.key === 'Enter') saveGroupSettings();

@@ -34,6 +34,7 @@ const Profile = (() => {
     $('#chat-panel').classList.add('hidden');
     $('#empty-state').classList.add('hidden');
     $('#add-friend-panel').classList.add('hidden');
+    $('#group-settings-panel').classList.add('hidden');
     $('#edit-profile-panel').classList.remove('hidden');
     $('#edit-profile-displayname').focus();
   }
