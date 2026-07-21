@@ -773,7 +773,7 @@ input { font-family: inherit; }
   gap: 14px;
 }
 
-.message-row { display: flex; gap: 12px; }
+.message-row { display: flex; gap: 12px; position: relative; }
 .message-body { flex: 1; min-width: 0; }
 .message-head { display: flex; align-items: baseline; gap: 8px; margin-bottom: 2px; }
 .message-author { font-weight: 600; color: var(--text-bright); font-size: 15px; }
@@ -781,6 +781,25 @@ input { font-family: inherit; }
 .message-content { font-size: 15px; color: var(--text-normal); line-height: 1.4; word-wrap: break-word; white-space: pre-wrap; }
 
 .message-row.own .message-author { color: #a4b3ff; }
+
+.message-delete-btn {
+  display: none;
+  position: absolute;
+  top: -2px;
+  right: 4px;
+  width: 26px;
+  height: 26px;
+  align-items: center;
+  justify-content: center;
+  border: none;
+  border-radius: 4px;
+  background: var(--bg-darkest);
+  color: var(--text-muted);
+  font-size: 13px;
+  cursor: pointer;
+}
+.message-row:hover .message-delete-btn { display: flex; }
+.message-delete-btn:hover { background: var(--red); color: #ffffff; }
 
 .invite-card {
   margin-top: 2px;

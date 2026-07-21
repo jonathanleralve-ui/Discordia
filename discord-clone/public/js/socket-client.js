@@ -22,6 +22,10 @@ const SocketClient = (() => {
       Chat.handleIncomingMessage('channel', msg);
     });
 
+    socket.on('message:deleted', ({ id }) => {
+      Chat.handleMessageDeleted(id);
+    });
+
     socket.on('group:join-request-resolved', ({ requestId, status }) => {
       Chat.handleJoinRequestResolved(requestId, status);
     });

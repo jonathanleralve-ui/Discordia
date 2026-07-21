@@ -120,6 +120,43 @@ function registerMessagingHandlers(io, socket, db) {
       socket.to(`channel:${id}`).emit('typing', { scope, from: uid, channelId: Number(id) });
     }
   });
+
+  // Deleting a message works the same whether it's plain text, an image,
+  // or any other attachment — we only ever store/broadcast the row id, the
+  // actual content (text vs. attachment) is irrelevant to removing it.
+  socket.on('message:delete', async ({ messageId }) => {
+    try {
+      const id = Number(messageId);
+      if (!Number.isInteger(id)) return;
+
+      const result = await db.query('SELECT * FROM messages WHERE id = $1', [id]);
+      const message = result.rows[0];
+      if (!message) return;
+
+      if (message.sender_id !== uid) {
+        socket.emit('error:message', { error: 'You can only delete your own messages' });
+        return;
+      }
+
+      await db.query('DELETE FROM messages WHERE id = $1', [id]);
+
+      const payload = {
+        id,
+        channelId: message.channel_id,
+        recipientId: message.recipient_id,
+        senderId: message.sender_id
+      };
+
+      if (message.channel_id) {
+        io.to(`channel:${message.channel_id}`).emit('message:deleted', payload);
+      } else if (message.recipient_id) {
+        io.to(`user:${message.sender_id}`).to(`user:${message.recipient_id}`).emit('message:deleted', payload);
+      }
+    } catch (err) {
+      console.error('message:delete error', err);
+      socket.emit('error:message', { error: 'Failed to delete message' });
+    }
+  });
 }
 
 module.exports = { registerMessagingHandlers };

@@ -71,6 +71,7 @@ const Chat = (() => {
     const list = $('#chat-messages');
     const row = document.createElement('div');
     row.className = `message-row ${m.senderId === AppState.me.id ? 'own' : ''}`;
+    row.dataset.messageId = m.id;
 
     const av = avatarEl({
       displayName: m.senderName,
@@ -91,8 +92,32 @@ const Chat = (() => {
     if (m.content) body.querySelector('.message-content').textContent = m.content;
     if (m.attachment) body.appendChild(renderAttachment(m.attachment));
     row.appendChild(body);
+
+    // Own message, whatever it contains (text, image, video, or any other
+    // file attachment) — same delete affordance either way.
+    if (m.senderId === AppState.me.id) {
+      const delBtn = document.createElement('button');
+      delBtn.type = 'button';
+      delBtn.className = 'message-delete-btn';
+      delBtn.title = 'Delete message';
+      delBtn.textContent = '🗑';
+      delBtn.addEventListener('click', () => deleteMessage(m.id));
+      row.appendChild(delBtn);
+    }
+
     list.appendChild(row);
     scrollToBottom();
+  }
+
+  function deleteMessage(messageId) {
+    if (!AppState.socket) return;
+    if (!confirm('Delete this message? This cannot be undone.')) return;
+    AppState.socket.emit('message:delete', { messageId });
+  }
+
+  function handleMessageDeleted(messageId) {
+    const row = document.querySelector(`.message-row[data-message-id="${messageId}"]`);
+    if (row) row.remove();
   }
 
   function appendSystemMessage(m) {
@@ -478,6 +503,7 @@ const Chat = (() => {
     handleIncomingMessage,
     handleTypingEvent,
     handleJoinRequestResolved,
+    handleMessageDeleted,
     initUI
   };
 })();
