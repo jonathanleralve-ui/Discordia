@@ -26,14 +26,17 @@ function initSockets(io) {
     presence.addSocket(uid, socket.id);
     presence.broadcastStatus(io, uid, 'online').catch((err) => console.error('broadcastStatus error', err));
 
-    // Personal room for DMs, plus a room per text channel in every group they
-    // belong to (so messages land even if that channel isn't the active one).
+    // Personal room for DMs, plus a room per channel (text and voice) in
+    // every group they belong to — text channels need it so messages land
+    // even when that channel isn't active, and voice channels need it so
+    // "who's in this voice channel" roster updates reach every member's
+    // sidebar, not just the people currently in the call.
     socket.join(`user:${uid}`);
     try {
       const channels = await db.query(
         `SELECT c.id FROM channels c
          JOIN group_members gm ON gm.group_id = c.group_id
-         WHERE gm.user_id = $1 AND c.type = 'text'`,
+         WHERE gm.user_id = $1`,
         [uid]
       );
       channels.rows.forEach((c) => socket.join(`channel:${c.id}`));

@@ -42,6 +42,7 @@ const Api = (() => {
     declineJoinRequest: (groupId, requestId) =>
       request(`/groups/${groupId}/join-requests/${requestId}/decline`, { method: 'POST' }),
     members: (groupId) => request(`/groups/${groupId}/members`),
+    voiceRosters: (groupId) => request(`/groups/${groupId}/voice-rosters`),
     addMember: (groupId, userId) =>
       request(`/groups/${groupId}/members`, { method: 'POST', body: JSON.stringify({ userId }) }),
     rename: (groupId, name, iconUrl) =>

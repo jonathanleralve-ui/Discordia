@@ -425,6 +425,49 @@ input { font-family: inherit; }
   flex: 1;
 }
 
+.voice-roster-list {
+  margin: -2px 0 6px 20px;
+  padding-left: 12px;
+  border-left: 1px solid var(--border);
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.voice-roster-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 3px 6px;
+  border-radius: 4px;
+  color: var(--text-muted);
+}
+
+.voice-roster-item .avatar {
+  width: 20px;
+  height: 20px;
+  font-size: 10px;
+}
+
+.voice-roster-name {
+  font-size: 13px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  flex: 1;
+}
+
+.voice-roster-live-badge {
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.03em;
+  color: #ffffff;
+  background: var(--green);
+  padding: 1px 6px;
+  border-radius: 999px;
+  flex-shrink: 0;
+}
+
 .channel-actions {
   display: flex;
   align-items: center;

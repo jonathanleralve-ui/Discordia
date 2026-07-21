@@ -1,6 +1,7 @@
 const express = require('express');
 const db = require('../db');
 const auth = require('../middleware/auth');
+const { getRoster } = require('../sockets/voice');
 
 const router = express.Router();
 router.use(auth);
@@ -139,6 +140,34 @@ router.get('/:groupId/members', async (req, res) => {
     );
 
     res.json({ members: result.rows.map(publicUser) });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Something went wrong, please try again' });
+  }
+});
+
+// Snapshot of who's currently connected to each voice channel in this group —
+// used to populate the sidebar when the group is first opened; live updates
+// after that arrive over the socket as 'voice:roster-update'.
+router.get('/:groupId/voice-rosters', async (req, res) => {
+  try {
+    const uid = req.user.id;
+    const groupId = Number(req.params.groupId);
+    const memberCheck = await db.query(
+      'SELECT 1 FROM group_members WHERE group_id = $1 AND user_id = $2',
+      [groupId, uid]
+    );
+    if (memberCheck.rows.length === 0) return res.status(403).json({ error: 'Not a member of this group' });
+
+    const channelsResult = await db.query(
+      `SELECT id FROM channels WHERE group_id = $1 AND type = 'voice'`,
+      [groupId]
+    );
+
+    const rosters = {};
+    channelsResult.rows.forEach((c) => { rosters[c.id] = getRoster(c.id); });
+
+    res.json({ rosters });
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: 'Something went wrong, please try again' });

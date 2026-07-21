@@ -15,5 +15,9 @@ const AppState = {
 
   // Currently open chat in the main pane: { type: 'dm'|'channel', id, name, color?, groupId? }
   activeChat: null,
-  activeMemberIds: []
+  activeMemberIds: [],
+
+  // Who's currently connected to each voice channel of the open group, keyed
+  // by channel id: { [channelId]: [{ userId, displayName, avatarColor, avatarUrl, nameColor, sharing }] }
+  voiceRosters: {}
 };

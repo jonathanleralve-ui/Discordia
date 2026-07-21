@@ -58,6 +58,11 @@ const Groups = (() => {
       renderMembers(data.members);
     });
 
+    Api.groups.voiceRosters(g.id).then((data) => {
+      AppState.voiceRosters = data.rosters || {};
+      refreshChannelHighlight();
+    });
+
     loadChannels(g.id);
   }
 
@@ -85,8 +90,48 @@ const Groups = (() => {
     if (text.length === 0) container.appendChild(buildEmptyHint('No text channels yet.'));
 
     container.appendChild(buildCategoryHeader('VOICE CHANNELS', 'voice'));
-    voice.forEach((c) => container.appendChild(buildChannelRow(c, isOwner)));
+    voice.forEach((c) => {
+      container.appendChild(buildChannelRow(c, isOwner));
+      const roster = AppState.voiceRosters[c.id];
+      if (roster && roster.length > 0) container.appendChild(buildVoiceRosterList(roster));
+    });
     if (voice.length === 0) container.appendChild(buildEmptyHint('No voice channels yet.'));
+  }
+
+  // Handle a realtime roster change for one voice channel (someone joined,
+  // left, or started/stopped screen sharing) by updating local state and
+  // re-rendering the channel list if that channel belongs to the open group.
+  function handleVoiceRosterUpdate(channelId, participants) {
+    AppState.voiceRosters[channelId] = participants;
+    if (AppState.activeGroupChannels.some((c) => c.id === channelId)) {
+      renderChannels();
+    }
+  }
+
+  function buildVoiceRosterList(roster) {
+    const list = document.createElement('div');
+    list.className = 'voice-roster-list';
+    roster.forEach((p) => {
+      const item = document.createElement('div');
+      item.className = 'voice-roster-item';
+      item.appendChild(avatarWithStatus(p));
+
+      const name = document.createElement('span');
+      name.className = 'voice-roster-name';
+      name.textContent = p.displayName;
+      applyNameColor(name, p.nameColor);
+      item.appendChild(name);
+
+      if (p.sharing) {
+        const badge = document.createElement('span');
+        badge.className = 'voice-roster-live-badge';
+        badge.textContent = 'LIVE';
+        item.appendChild(badge);
+      }
+
+      list.appendChild(item);
+    });
+    return list;
   }
 
   // Re-render without re-fetching, e.g. after switching the active text
@@ -670,5 +715,5 @@ const Groups = (() => {
     if (leaveBtn) leaveBtn.addEventListener('click', leaveActiveGroup);
   }
 
-  return { refresh, open, initUI, refreshChannelHighlight, handleJoined };
+  return { refresh, open, initUI, refreshChannelHighlight, handleJoined, handleVoiceRosterUpdate };
 })();

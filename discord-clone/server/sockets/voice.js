@@ -18,6 +18,23 @@ function voicePeerList(channelId) {
   }));
 }
 
+// Simplified snapshot used for the channel list in the sidebar — every group
+// member sees this, not just people currently in the call.
+function getRoster(channelId) {
+  return Array.from(voiceRoom(channelId).values()).map((info) => ({
+    userId: info.userId,
+    displayName: info.displayName,
+    avatarColor: info.avatarColor,
+    avatarUrl: info.avatarUrl,
+    nameColor: info.nameColor,
+    sharing: info.sharing
+  }));
+}
+
+function broadcastRoster(io, channelId) {
+  io.to(`channel:${channelId}`).emit('voice:roster-update', { channelId, participants: getRoster(channelId) });
+}
+
 function leaveVoiceChannel(io, socket, channelId) {
   if (!channelId) return;
   const room = voiceRoom(channelId);
@@ -25,6 +42,7 @@ function leaveVoiceChannel(io, socket, channelId) {
     room.delete(socket.id);
     socket.leave(`voice:${channelId}`);
     io.to(`voice:${channelId}`).emit('voice:peer-left', { socketId: socket.id });
+    broadcastRoster(io, channelId);
   }
   if (socket.currentVoiceChannel === channelId) socket.currentVoiceChannel = null;
   if (room.size === 0) voiceRooms.delete(channelId);
@@ -70,6 +88,7 @@ function registerVoiceHandlers(io, socket, db) {
       socket.join(`voice:${cid}`);
 
       socket.to(`voice:${cid}`).emit('voice:peer-joined', { socketId: socket.id, ...info });
+      broadcastRoster(io, cid);
     } catch (err) {
       console.error('voice:join error', err);
       socket.emit('error:message', { error: 'Failed to join voice channel' });
@@ -93,6 +112,7 @@ function registerVoiceHandlers(io, socket, db) {
     if (!info) return;
     info.sharing = !!sharing;
     io.to(`voice:${cid}`).emit('voice:peer-screen-update', { socketId: socket.id, sharing: info.sharing });
+    broadcastRoster(io, cid);
   });
 
   socket.on('voice:mute-toggle', ({ channelId, muted }) => {
@@ -105,4 +125,4 @@ function registerVoiceHandlers(io, socket, db) {
   });
 }
 
-module.exports = { registerVoiceHandlers, leaveVoiceChannel };
+module.exports = { registerVoiceHandlers, leaveVoiceChannel, getRoster };

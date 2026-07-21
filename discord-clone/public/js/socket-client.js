@@ -34,6 +34,10 @@ const SocketClient = (() => {
       Groups.handleJoined(group);
     });
 
+    socket.on('voice:roster-update', ({ channelId, participants }) => {
+      Groups.handleVoiceRosterUpdate(channelId, participants);
+    });
+
     socket.on('typing', ({ scope, from, channelId }) => {
       Chat.handleTypingEvent(scope, from, channelId);
     });
