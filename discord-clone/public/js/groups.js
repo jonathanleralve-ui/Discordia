@@ -6,6 +6,8 @@ const Groups = (() => {
   let createChannelType = 'text';
   let pendingRenameChannel = null;
   let pendingDeleteChannel = null;
+  let selectedGroupIconUrl = null;
+  let pendingGroupIconFile = null;
 
   function refresh() {
     return Api.groups.list().then((data) => {
@@ -23,7 +25,15 @@ const Groups = (() => {
       el.title = g.name;
       el.dataset.groupId = g.id;
       el.style.background = g.iconColor;
-      el.textContent = initials(g.name);
+      if (g.iconUrl) {
+        el.innerHTML = '';
+        const img = document.createElement('img');
+        img.src = g.iconUrl;
+        img.alt = g.name;
+        el.appendChild(img);
+      } else {
+        el.textContent = initials(g.name);
+      }
       el.addEventListener('click', () => open(g));
       container.appendChild(el);
     });
@@ -434,10 +444,29 @@ const Groups = (() => {
     $('#channel-type-voice').classList.toggle('active', type === 'voice');
   }
 
+  function renderGroupIconPreview() {
+    const preview = $('#group-settings-photo-preview');
+    preview.innerHTML = '';
+    if (selectedGroupIconUrl) {
+      const img = document.createElement('img');
+      img.src = selectedGroupIconUrl;
+      img.alt = 'Group photo preview';
+      preview.appendChild(img);
+    } else if (AppState.activeGroup?.name) {
+      preview.textContent = initials(AppState.activeGroup.name);
+    } else {
+      preview.textContent = '?';
+    }
+    $('#group-settings-remove-photo-btn').classList.toggle('hidden', !selectedGroupIconUrl);
+  }
+
   function openGroupSettingsPanel() {
     if (!AppState.activeGroup) return;
     $('#group-settings-name').value = AppState.activeGroup.name;
     $('#group-settings-error').textContent = '';
+    selectedGroupIconUrl = AppState.activeGroup.iconUrl || null;
+    pendingGroupIconFile = null;
+    renderGroupIconPreview();
 
     $('#chat-panel').classList.add('hidden');
     $('#empty-state').classList.add('hidden');
@@ -462,17 +491,34 @@ const Groups = (() => {
     if (!name) { $('#group-settings-error').textContent = 'Group name is required'; return; }
 
     const groupId = AppState.activeGroup.id;
-    Api.groups.rename(groupId, name)
-      .then(({ group }) => {
-        AppState.activeGroup = group;
-        $('#sidebar-header').textContent = group.name;
-        closeGroupSettingsPanel();
-        return refresh().then(() => {
-          const el = document.querySelector(`.rail-item[data-group-id="${group.id}"]`);
-          if (el) App.setActiveRail(el);
+
+    const finalizeSave = (iconUrl) => {
+      Api.groups.rename(groupId, name, iconUrl)
+        .then(({ group }) => {
+          AppState.activeGroup = group;
+          $('#sidebar-header').textContent = group.name;
+          closeGroupSettingsPanel();
+          return refresh().then(() => {
+            const el = document.querySelector(`.rail-item[data-group-id="${group.id}"]`);
+            if (el) App.setActiveRail(el);
+          });
+        })
+        .catch((err) => { $('#group-settings-error').textContent = err.message; });
+    };
+
+    if (pendingGroupIconFile) {
+      $('#group-settings-error').textContent = 'Uploading image...';
+      Api.messages.upload(pendingGroupIconFile)
+        .then((data) => {
+          finalizeSave(data.url);
+        })
+        .catch((err) => {
+          $('#group-settings-error').textContent = err.message;
         });
-      })
-      .catch((err) => { $('#group-settings-error').textContent = err.message; });
+      return;
+    }
+
+    finalizeSave(selectedGroupIconUrl || null);
   }
 
   function leaveActiveGroup() {
@@ -553,6 +599,24 @@ const Groups = (() => {
     $('#group-settings-cancel').addEventListener('click', closeGroupSettingsPanel);
     $('#group-settings-close').addEventListener('click', closeGroupSettingsPanel);
     $('#group-settings-save').addEventListener('click', saveGroupSettings);
+    $('#group-settings-upload-btn').addEventListener('click', () => $('#group-settings-file').click());
+    $('#group-settings-remove-photo-btn').addEventListener('click', () => {
+      selectedGroupIconUrl = null;
+      pendingGroupIconFile = null;
+      renderGroupIconPreview();
+    });
+    $('#group-settings-file').addEventListener('change', (e) => {
+      const file = e.target.files && e.target.files[0];
+      if (!file) return;
+      pendingGroupIconFile = file;
+      const reader = new FileReader();
+      reader.onload = () => {
+        selectedGroupIconUrl = reader.result;
+        renderGroupIconPreview();
+      };
+      reader.readAsDataURL(file);
+      e.target.value = '';
+    });
     $('#group-settings-name').addEventListener('keydown', (e) => {
       if (e.key === 'Enter') saveGroupSettings();
     });

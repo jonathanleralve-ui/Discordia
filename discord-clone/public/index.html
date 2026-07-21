@@ -180,7 +180,13 @@
       <button class="btn-icon add-friend-close" id="group-settings-close" title="Close">✕</button>
       <div class="profile-panel-inner">
         <h2>Group Settings</h2>
-        <p class="profile-panel-sub">Update this group's name.</p>
+        <p class="profile-panel-sub">Update this group's name and photo.</p>
+        <div class="profile-photo-section">
+          <div class="profile-photo-preview" id="group-settings-photo-preview"></div>
+          <input type="file" id="group-settings-file" accept="image/*" class="hidden" />
+          <button class="btn-secondary" id="group-settings-upload-btn" type="button">Upload Image</button>
+          <button class="btn-secondary hidden" id="group-settings-remove-photo-btn" type="button">Remove</button>
+        </div>
         <label>Group Name</label>
         <input type="text" id="group-settings-name" maxlength="50" placeholder="Group name" />
         <div class="auth-error" id="group-settings-error"></div>

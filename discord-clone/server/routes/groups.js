@@ -37,6 +37,7 @@ router.get('/', async (req, res) => {
         id: g.id,
         name: g.name,
         iconColor: g.icon_color,
+        iconUrl: g.icon_url,
         ownerId: g.owner_id
       }))
     });
@@ -79,7 +80,7 @@ router.post('/', async (req, res) => {
     await client.query('COMMIT');
 
     res.status(201).json({
-      group: { id: group.id, name: group.name, iconColor: group.icon_color, ownerId: group.owner_id }
+      group: { id: group.id, name: group.name, iconColor: group.icon_color, iconUrl: group.icon_url, ownerId: group.owner_id }
     });
   } catch (err) {
     await client.query('ROLLBACK');
@@ -102,15 +103,18 @@ router.patch('/:groupId', async (req, res) => {
     );
     if (memberCheck.rows.length === 0) return res.status(403).json({ error: 'Only group members can rename this group' });
 
-    const { name } = req.body || {};
+    const { name, iconUrl } = req.body || {};
     const cleanName = String(name || '').trim().slice(0, 50);
     if (!cleanName) return res.status(400).json({ error: 'Group name is required' });
 
-    const updated = await db.query('UPDATE groups SET name = $2 WHERE id = $1 RETURNING *', [groupId, cleanName]);
+    const updated = await db.query(
+      'UPDATE groups SET name = $2, icon_url = $3 WHERE id = $1 RETURNING *',
+      [groupId, cleanName, iconUrl || null]
+    );
     const group = updated.rows[0];
     if (!group) return res.status(404).json({ error: 'Group not found' });
 
-    res.json({ group: { id: group.id, name: group.name, iconColor: group.icon_color, ownerId: group.owner_id } });
+    res.json({ group: { id: group.id, name: group.name, iconColor: group.icon_color, iconUrl: group.icon_url, ownerId: group.owner_id } });
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: 'Something went wrong, please try again' });
@@ -170,6 +174,7 @@ router.get('/search', async (req, res) => {
         id: g.id,
         name: g.name,
         iconColor: g.icon_color,
+        iconUrl: g.icon_url,
         ownerId: g.owner_id,
         memberCount: Number(g.member_count),
         isMember: g.is_member,
@@ -296,7 +301,7 @@ router.post('/:groupId/join-requests/:requestId/accept', async (req, res) => {
     // The requester isn't in the channel room yet, so notify them directly
     // so their client can refresh its group list and open the new group.
     io.to(`user:${request.user_id}`).emit('group:joined', {
-      group: { id: group.id, name: group.name, iconColor: group.icon_color, ownerId: group.owner_id }
+      group: { id: group.id, name: group.name, iconColor: group.icon_color, iconUrl: group.icon_url, ownerId: group.owner_id }
     });
 
     res.json({ ok: true });
