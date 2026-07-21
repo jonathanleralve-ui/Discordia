@@ -255,10 +255,11 @@
   <div class="modal hidden" id="create-channel-modal">
     <h2>Create Channel</h2>
     <label>Channel Type</label>
-    <div class="channel-type-toggle">
+    <div class="channel-type-toggle hidden" id="channel-type-toggle">
       <button class="channel-type-btn active" id="channel-type-text">💬 Text</button>
       <button class="channel-type-btn" id="channel-type-voice">🔊 Voice</button>
     </div>
+    <div class="channel-type-locked" id="channel-type-locked"></div>
     <label>Channel Name</label>
     <input type="text" id="create-channel-name" placeholder="new-channel" />
     <div class="auth-error" id="create-channel-error"></div>

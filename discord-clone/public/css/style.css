@@ -513,6 +513,16 @@ input { font-family: inherit; }
 .channel-type-btn:hover { color: var(--text-normal); }
 .channel-type-btn.active { background: var(--blurple); color: white; }
 
+.channel-type-locked {
+  margin-top: 6px;
+  padding: 10px;
+  border-radius: 4px;
+  background: var(--bg-darkest);
+  color: var(--text-normal);
+  font-size: 14px;
+  font-weight: 600;
+}
+
 .sidebar-user {
   display: flex;
   align-items: center;

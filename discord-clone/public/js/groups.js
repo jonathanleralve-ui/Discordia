@@ -421,6 +421,11 @@ const Groups = (() => {
     setCreateChannelType(type || 'text');
     $('#create-channel-name').value = '';
     $('#create-channel-error').textContent = '';
+    // The modal is always opened from a specific "+" (Text or Voice), so
+    // lock the type to that choice instead of letting it be switched —
+    // the Text "+" only ever creates text channels, Voice "+" only voice.
+    $('#channel-type-toggle').classList.add('hidden');
+    $('#channel-type-locked').textContent = createChannelType === 'voice' ? '🔊 Voice Channel' : '💬 Text Channel';
     showModal('create-channel-modal');
   }
 
