@@ -330,7 +330,7 @@ input { font-family: inherit; }
 .group-panel-header {
   display: flex;
   align-items: center;
-  justify-content: flex-end;
+  justify-content: center;
   padding: 12px 8px 16px;
   font-weight: 700;
   color: var(--text-bright);
