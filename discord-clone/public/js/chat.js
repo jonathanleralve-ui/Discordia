@@ -110,9 +110,14 @@ const Chat = (() => {
     const group = AppState.activeGroup;
     const groupName = group ? group.name : 'this server';
     const groupColor = group ? group.iconColor : 'var(--blurple)';
+    const groupIconUrl = group ? group.iconUrl : null;
     const channel = AppState.activeGroupChannels.find((c) => c.id === m.channelId);
     const channelName = channel ? channel.name : (AppState.activeChat ? AppState.activeChat.name : 'general');
     const isMe = m.senderId === AppState.me.id;
+
+    const groupIconInner = groupIconUrl
+      ? `<img src="${escapeHtml(groupIconUrl)}" alt="${escapeHtml(groupName)}">`
+      : escapeHtml(initials(groupName));
 
     const body = document.createElement('div');
     body.className = 'message-body';
@@ -120,7 +125,7 @@ const Chat = (() => {
       <div class="invite-card">
         <div class="invite-card-label">${isMe ? 'You sent an invite to join a server' : `${escapeHtml(m.senderName)} wants to join a server`}</div>
         <div class="invite-card-body">
-          <div class="invite-card-icon" style="background: ${groupColor}">${escapeHtml(initials(groupName))}</div>
+          <div class="invite-card-icon" style="background: ${groupColor}">${groupIconInner}</div>
           <div class="invite-card-info">
             <div class="invite-card-server-name">${escapeHtml(groupName)}</div>
             <div class="invite-card-channel"># ${escapeHtml(channelName)}</div>

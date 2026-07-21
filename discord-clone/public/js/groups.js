@@ -329,7 +329,14 @@ const Groups = (() => {
     const icon = document.createElement('div');
     icon.className = 'avatar';
     icon.style.background = g.iconColor;
-    icon.textContent = initials(g.name);
+    if (g.iconUrl) {
+      const img = document.createElement('img');
+      img.src = g.iconUrl;
+      img.alt = g.name;
+      icon.appendChild(img);
+    } else {
+      icon.textContent = initials(g.name);
+    }
     row.appendChild(icon);
 
     const meta = document.createElement('div');
