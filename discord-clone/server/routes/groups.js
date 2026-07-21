@@ -404,7 +404,40 @@ router.delete('/:groupId/members/me', async (req, res) => {
   try {
     const uid = req.user.id;
     const groupId = Number(req.params.groupId);
+
+    const userResult = await db.query('SELECT display_name, avatar_color FROM users WHERE id = $1', [uid]);
+    const user = userResult.rows[0];
+
     await db.query('DELETE FROM group_members WHERE group_id = $1 AND user_id = $2', [groupId, uid]);
+
+    // Announce the departure in the group's default text channel, same place
+    // "X has joined the server" is posted on accept.
+    const channelResult = await db.query(
+      `SELECT * FROM channels WHERE group_id = $1 AND type = 'text' ORDER BY position ASC, id ASC LIMIT 1`,
+      [groupId]
+    );
+    const channel = channelResult.rows[0];
+
+    if (channel && user) {
+      const systemMsgInserted = await db.query(
+        `INSERT INTO messages (sender_id, channel_id, group_id, content, message_type)
+         VALUES ($1, $2, $3, $4, 'system') RETURNING id, created_at`,
+        [uid, channel.id, groupId, `${user.display_name} has left the server`]
+      );
+
+      const io = req.app.get('io');
+      io.to(`channel:${channel.id}`).emit('channel:message', {
+        id: systemMsgInserted.rows[0].id,
+        content: `${user.display_name} has left the server`,
+        createdAt: systemMsgInserted.rows[0].created_at,
+        senderId: uid,
+        senderName: user.display_name,
+        senderColor: user.avatar_color,
+        channelId: channel.id,
+        messageType: 'system'
+      });
+    }
+
     res.json({ ok: true });
   } catch (err) {
     console.error(err);
