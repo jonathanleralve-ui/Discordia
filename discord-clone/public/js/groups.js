@@ -36,7 +36,6 @@ const Groups = (() => {
     $('#sidebar-header').textContent = g.name;
     $('#friends-panel').classList.add('hidden');
     $('#group-panel').classList.remove('hidden');
-    $('#group-panel-title').textContent = g.name;
     $('#add-friend-panel').classList.add('hidden');
     $('#edit-profile-panel').classList.add('hidden');
     $('#empty-state').classList.remove('hidden');
@@ -454,7 +453,6 @@ const Groups = (() => {
     Api.groups.rename(groupId, name)
       .then(({ group }) => {
         AppState.activeGroup = group;
-        $('#group-panel-title').textContent = group.name;
         $('#sidebar-header').textContent = group.name;
         closeModals();
         return refresh().then(() => {
