@@ -770,7 +770,7 @@ input { font-family: inherit; }
   padding: 16px;
   display: flex;
   flex-direction: column;
-  gap: 14px;
+  gap: 22px;
 }
 
 .message-row { display: flex; gap: 12px; position: relative; }
