@@ -59,20 +59,45 @@ CREATE TABLE IF NOT EXISTS group_members (
 -- Joining a group now requires an existing member to accept the request
 -- (posted as a message in the group's default channel) rather than adding
 -- the requester immediately.
+--
+-- NOTE: this used to have a UNIQUE(group_id, user_id) constraint so a repeat
+-- request would upsert the same row (see the old ON CONFLICT insert in
+-- routes/groups.js). That meant a user leaving and requesting to join again
+-- reused the exact same request id, so the old (already-resolved) "invite"
+-- message in chat and the new (pending) one both pointed at the same row and
+-- always showed identical status. Each request now gets its own row/id;
+-- only-one-*pending*-request-at-a-time is enforced in the route handler.
 CREATE TABLE IF NOT EXISTS group_join_requests (
   id SERIAL PRIMARY KEY,
   group_id INTEGER NOT NULL REFERENCES groups(id) ON DELETE CASCADE,
   user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
   status TEXT NOT NULL DEFAULT 'pending', -- pending | accepted
-  created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
-  UNIQUE(group_id, user_id)
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
--- Belt-and-suspenders: if the table above already existed from an earlier
--- run (before the inline UNIQUE constraint was added), CREATE TABLE IF NOT
--- EXISTS would have skipped it, leaving ON CONFLICT (group_id, user_id)
--- below with no arbiter index. This ensures the index exists either way.
-CREATE UNIQUE INDEX IF NOT EXISTS idx_group_join_requests_unique ON group_join_requests(group_id, user_id);
+-- Migration for databases created before this constraint was removed. The
+-- constraint's name depends on how/when the table was originally created
+-- (inline UNIQUE(...) gets an auto-generated name, and older revisions of
+-- this file also created a separately named unique index), so rather than
+-- guessing a name and risking a silent no-op via "IF EXISTS", look up
+-- whatever unique constraint(s) actually exist on these two columns and
+-- drop them by their real name.
+DO $$
+DECLARE
+  r RECORD;
+BEGIN
+  FOR r IN
+    SELECT conname FROM pg_constraint
+    WHERE conrelid = 'group_join_requests'::regclass AND contype = 'u'
+  LOOP
+    EXECUTE format('ALTER TABLE group_join_requests DROP CONSTRAINT %I', r.conname);
+  END LOOP;
+END $$;
+DROP INDEX IF EXISTS idx_group_join_requests_unique;
+
+-- Non-unique index to keep the "is there already a pending request"/search
+-- lookups fast now that a (group_id, user_id) pair can have many rows.
+CREATE INDEX IF NOT EXISTS idx_group_join_requests_lookup ON group_join_requests(group_id, user_id, status);
 
 -- A group ("server") is now made up of channels, same as Discord: several
 -- text channels and several voice channels, organized into categories.
@@ -121,7 +146,14 @@ CREATE INDEX IF NOT EXISTS idx_messages_channel ON messages(channel_id);
 `;
 
 // Postgres (especially in Docker) can take a few seconds to accept
-// connections after the container starts, so retry on startup.
+// connections after the container starts, so retry on startup — but only
+// for actual connectivity errors. A real error in the SCHEMA string (e.g. a
+// bad migration statement) isn't a "not ready yet" situation and used to
+// get logged as one, then silently retried 20 times before finally
+// surfacing, which made it very hard to tell "Postgres is still booting"
+// apart from "the schema migration is broken".
+const CONNECTION_ERROR_CODES = new Set(['ECONNREFUSED', 'ENOTFOUND', 'EAI_AGAIN', '57P03', '08006', '08001', '08004']);
+
 async function init(retries = 20, delayMs = 1500) {
   for (let attempt = 1; attempt <= retries; attempt++) {
     try {
@@ -129,6 +161,10 @@ async function init(retries = 20, delayMs = 1500) {
       console.log('Connected to Postgres and ensured schema exists.');
       return;
     } catch (err) {
+      if (!CONNECTION_ERROR_CODES.has(err.code)) {
+        console.error('Postgres schema setup failed (this is a real error, not a "not ready yet" retry):', err.message);
+        throw err;
+      }
       console.log(`Postgres not ready yet (attempt ${attempt}/${retries}): ${err.message}`);
       if (attempt === retries) throw err;
       await new Promise((r) => setTimeout(r, delayMs));

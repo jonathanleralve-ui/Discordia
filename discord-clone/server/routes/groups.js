@@ -185,7 +185,6 @@ router.post('/:groupId/join-requests', async (req, res) => {
     const inserted = await db.query(
       `INSERT INTO group_join_requests (group_id, user_id, status)
        VALUES ($1, $2, 'pending')
-       ON CONFLICT (group_id, user_id) DO UPDATE SET status = 'pending', created_at = now()
        RETURNING *`,
       [groupId, uid]
     );
