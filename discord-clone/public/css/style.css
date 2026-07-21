@@ -865,6 +865,18 @@ input { font-family: inherit; }
 .join-request-resolved-label { font-size: 13px; font-weight: 600; color: var(--green); }
 .join-request-declined-label { font-size: 13px; font-weight: 600; color: var(--red, #ED4245); }
 
+.message-row.system-message-row { padding-left: 0; }
+.system-message-line {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 4px 0;
+  font-size: 13px;
+  color: var(--text-muted);
+}
+.system-message-icon { color: var(--green); font-size: 16px; line-height: 1; }
+.system-message-text { color: var(--text-muted); }
+
 .attachment-image-link { display: inline-block; margin-top: 6px; cursor: zoom-in; }
 .attachment-image {
   max-width: 400px;

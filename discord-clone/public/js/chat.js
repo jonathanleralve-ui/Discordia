@@ -63,6 +63,10 @@ const Chat = (() => {
       appendJoinRequestMessage(m);
       return;
     }
+    if (m.messageType === 'system') {
+      appendSystemMessage(m);
+      return;
+    }
 
     const list = $('#chat-messages');
     const row = document.createElement('div');
@@ -87,6 +91,21 @@ const Chat = (() => {
     if (m.content) body.querySelector('.message-content').textContent = m.content;
     if (m.attachment) body.appendChild(renderAttachment(m.attachment));
     row.appendChild(body);
+    list.appendChild(row);
+    scrollToBottom();
+  }
+
+  function appendSystemMessage(m) {
+    const list = $('#chat-messages');
+    const row = document.createElement('div');
+    row.className = 'message-row system-message-row';
+    row.innerHTML = `
+      <div class="system-message-line">
+        <span class="system-message-icon">•</span>
+        <span class="system-message-text">${escapeHtml(m.content)}</span>
+        <span class="message-time">${formatTime(m.createdAt)}</span>
+      </div>
+    `;
     list.appendChild(row);
     scrollToBottom();
   }

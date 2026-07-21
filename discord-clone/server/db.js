@@ -139,7 +139,9 @@ ALTER TABLE messages ADD COLUMN IF NOT EXISTS attachment_size INTEGER;
 ALTER TABLE messages ALTER COLUMN content SET DEFAULT '';
 
 -- A message can represent a group join request instead of regular chat text,
--- rendered as an "X wants to join" card with an Accept action.
+-- rendered as an "X wants to join" card with an Accept action. The 'system'
+-- type is used for plain announcement lines (e.g. "X has joined the server")
+-- that render without an avatar-attached author, unlike normal 'text' messages.
 ALTER TABLE messages ADD COLUMN IF NOT EXISTS message_type TEXT NOT NULL DEFAULT 'text';
 ALTER TABLE messages ADD COLUMN IF NOT EXISTS join_request_id INTEGER REFERENCES group_join_requests(id) ON DELETE CASCADE;
 

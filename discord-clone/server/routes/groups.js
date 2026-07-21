@@ -296,6 +296,28 @@ router.post('/:groupId/join-requests/:requestId/accept', async (req, res) => {
     const channelId = msgResult.rows[0] && msgResult.rows[0].channel_id;
     if (channelId) {
       io.to(`channel:${channelId}`).emit('group:join-request-resolved', { requestId, groupId, status: 'accepted' });
+
+      // Post a "X has joined the server" system line in the same channel so
+      // everyone watching chat sees the group gain a member in real time.
+      const joinerResult = await db.query('SELECT display_name, avatar_color FROM users WHERE id = $1', [request.user_id]);
+      const joiner = joinerResult.rows[0];
+
+      const systemMsgInserted = await db.query(
+        `INSERT INTO messages (sender_id, channel_id, group_id, content, message_type)
+         VALUES ($1, $2, $3, $4, 'system') RETURNING id, created_at`,
+        [request.user_id, channelId, groupId, `${joiner.display_name} has joined the server`]
+      );
+
+      io.to(`channel:${channelId}`).emit('channel:message', {
+        id: systemMsgInserted.rows[0].id,
+        content: `${joiner.display_name} has joined the server`,
+        createdAt: systemMsgInserted.rows[0].created_at,
+        senderId: request.user_id,
+        senderName: joiner.display_name,
+        senderColor: joiner.avatar_color,
+        channelId,
+        messageType: 'system'
+      });
     }
 
     // The requester isn't in the channel room yet, so notify them directly
