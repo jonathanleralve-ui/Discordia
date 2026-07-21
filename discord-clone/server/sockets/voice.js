@@ -58,13 +58,13 @@ function registerVoiceHandlers(io, socket, db) {
         leaveVoiceChannel(io, socket, socket.currentVoiceChannel);
       }
 
-      const userResult = await db.query('SELECT display_name, avatar_color FROM users WHERE id = $1', [uid]);
+      const userResult = await db.query('SELECT display_name, avatar_color, avatar_url FROM users WHERE id = $1', [uid]);
       const user = userResult.rows[0];
 
       // Tell the joining client who is already in the channel, so it can initiate connections to each
       socket.emit('voice:existing-peers', { peers: voicePeerList(cid) });
 
-      const info = { userId: uid, displayName: user.display_name, avatarColor: user.avatar_color, sharing: false, muted: false };
+      const info = { userId: uid, displayName: user.display_name, avatarColor: user.avatar_color, avatarUrl: user.avatar_url, sharing: false, muted: false };
       voiceRoom(cid).set(socket.id, info);
       socket.currentVoiceChannel = cid;
       socket.join(`voice:${cid}`);
