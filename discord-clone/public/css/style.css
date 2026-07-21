@@ -548,7 +548,7 @@ input { font-family: inherit; }
 .user-status { font-size: 11px; color: var(--text-muted); }
 
 /* Chat area */
-.chat-area { background: var(--bg-mid); display: flex; flex-direction: column; min-width: 0; min-height: 0; overflow: hidden; }
+.chat-area { background: var(--bg-mid); display: flex; flex-direction: column; min-width: 0; min-height: 0; overflow: hidden; position: relative; }
 
 .empty-state {
   flex: 1;
@@ -645,9 +645,10 @@ input { font-family: inherit; }
 .add-friend-panel-inner .auth-error { margin-top: 12px; }
 
 .profile-panel {
-  flex: 1;
-  min-height: 0;
-  position: relative;
+  position: absolute;
+  inset: 0;
+  z-index: 40;
+  background: var(--bg-mid);
   display: flex;
   align-items: flex-start;
   justify-content: center;

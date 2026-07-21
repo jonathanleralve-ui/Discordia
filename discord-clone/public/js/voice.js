@@ -132,6 +132,8 @@ const VoiceChat = (() => {
     resetPanelHeight();
     socket.emit('voice:join', { channelId });
 
+    $('#edit-profile-panel').classList.add('hidden');
+
     startSpeakingDetection('self', localMicStream);
 
     if (typeof Groups !== 'undefined') Groups.refreshChannelHighlight();
