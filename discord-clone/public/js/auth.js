@@ -66,7 +66,11 @@ const Auth = (() => {
     $('#register-submit').addEventListener('click', doRegister);
     $('#register-password').addEventListener('keydown', (e) => { if (e.key === 'Enter') doRegister(); });
 
-    $('#logout-btn').addEventListener('click', logout);
+    $('#logout-btn').addEventListener('click', () => {
+      if (confirm('Are you sure you want to log out?')) {
+        logout();
+      }
+    });
   }
 
   return { initUI, tryResume };
