@@ -455,6 +455,14 @@ const Groups = (() => {
   }
 
   function initUI() {
+    // A channel's "..." menu opens on click; clicking anywhere else in the
+    // document (another channel, the chat area, etc.) should close it,
+    // instead of requiring the user to click the same button again.
+    document.addEventListener('click', (e) => {
+      if (e.target.closest('.channel-actions')) return;
+      $$('.channel-actions.open').forEach((el) => el.classList.remove('open'));
+    });
+
     $('#rail-add-group').addEventListener('click', openSelectActionModal);
 
     $('#select-group-action-cancel').addEventListener('click', closeModals);
