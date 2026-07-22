@@ -2,7 +2,7 @@
 // new messages, and reacting to realtime message/typing events from
 // SocketClient.
 const Chat = (() => {
-  const { $, escapeHtml, initials, formatTime, avatarEl } = Utils;
+  const { $, escapeHtml, initials, formatTime, avatarEl, linkifyText } = Utils;
 
   let typingTimeout = null;
   const typingClearTimers = {};
@@ -89,7 +89,10 @@ const Chat = (() => {
       </div>
       <div class="message-content"></div>
     `;
-    if (m.content) body.querySelector('.message-content').textContent = m.content;
+    if (m.content) {
+      const embedUrl = linkifyText(body.querySelector('.message-content'), m.content);
+      if (embedUrl) body.appendChild(renderVideoEmbed(embedUrl));
+    }
     if (m.attachment) body.appendChild(renderAttachment(m.attachment));
     if (m.senderNameColor && /^#[0-9a-fA-F]{6}$/.test(m.senderNameColor)) {
       body.querySelector('.message-author').style.color = m.senderNameColor;
@@ -251,6 +254,19 @@ const Chat = (() => {
     let n = bytes;
     while (n >= 1024 && i < units.length - 1) { n /= 1024; i++; }
     return `${n.toFixed(n >= 10 || i === 0 ? 0 : 1)} ${units[i]}`;
+  }
+
+  function renderVideoEmbed(embedUrl) {
+    const wrap = document.createElement('div');
+    wrap.className = 'link-video-embed';
+    const iframe = document.createElement('iframe');
+    iframe.src = embedUrl;
+    iframe.title = 'Embedded video';
+    iframe.allow = 'accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share';
+    iframe.allowFullscreen = true;
+    iframe.frameBorder = '0';
+    wrap.appendChild(iframe);
+    return wrap;
   }
 
   function renderAttachment(att) {
