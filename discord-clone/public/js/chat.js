@@ -2,7 +2,7 @@
 // new messages, and reacting to realtime message/typing events from
 // SocketClient.
 const Chat = (() => {
-  const { $, escapeHtml, initials, formatTime, avatarEl, linkifyText } = Utils;
+  const { $, escapeHtml, initials, formatTime, avatarEl, linkifyText, isEmojiOnly } = Utils;
 
   let typingTimeout = null;
   const typingClearTimers = {};
@@ -90,7 +90,9 @@ const Chat = (() => {
       <div class="message-content"></div>
     `;
     if (m.content) {
-      const embedUrl = linkifyText(body.querySelector('.message-content'), m.content);
+      const contentEl = body.querySelector('.message-content');
+      if (isEmojiOnly(m.content)) contentEl.classList.add('emoji-only');
+      const embedUrl = linkifyText(contentEl, m.content);
       if (embedUrl) body.appendChild(renderVideoEmbed(embedUrl));
     }
     if (m.attachment) body.appendChild(renderAttachment(m.attachment));

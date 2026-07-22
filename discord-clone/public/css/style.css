@@ -834,6 +834,7 @@ input { font-family: inherit; }
 .message-author { font-weight: 600; color: var(--text-bright); font-size: 15px; }
 .message-time { font-size: 11px; color: var(--text-muted); }
 .message-content { font-size: 15px; color: var(--text-normal); line-height: 1.4; word-wrap: break-word; white-space: pre-wrap; }
+.message-content.emoji-only { font-size: 40px; line-height: 1.3; white-space: normal; }
 
 .message-row.own .message-author { color: #a4b3ff; }
 

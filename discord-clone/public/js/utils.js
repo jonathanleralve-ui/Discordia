@@ -168,5 +168,18 @@ const Utils = (() => {
     return embedUrl;
   }
 
-  return { $, $$, initials, escapeHtml, formatTime, avatarEl, avatarWithStatus, applyNameColor, linkifyText, getVideoEmbedUrl };
+  // A message counts as "emoji-only" when, once whitespace is stripped, it's
+  // made up entirely of emoji characters (plus their variation-selector/ZWJ
+  // modifiers) and there aren't too many of them — mirrors how Discord/Slack
+  // only "jumbo" a handful of emoji, not a wall of them.
+  const EMOJI_ONLY_REGEX = /^(?:\p{Extended_Pictographic}|\p{Emoji_Modifier}|\uFE0F|\u200D)+$/u;
+  const EMOJI_ONLY_MAX_LENGTH = 24;
+
+  function isEmojiOnly(text) {
+    const trimmed = (text || '').trim();
+    if (!trimmed || trimmed.length > EMOJI_ONLY_MAX_LENGTH) return false;
+    return EMOJI_ONLY_REGEX.test(trimmed);
+  }
+
+  return { $, $$, initials, escapeHtml, formatTime, avatarEl, avatarWithStatus, applyNameColor, linkifyText, getVideoEmbedUrl, isEmojiOnly };
 })();
