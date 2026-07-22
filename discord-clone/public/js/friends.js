@@ -56,8 +56,12 @@ const Friends = (() => {
     } else {
       AppState.unreadElseTabSenders[senderId] = true;
       setTabDotVisible('else', true);
-      if (!(AppState.elseData || []).some((u) => u.id === senderId)) refresh();
+      if (!(AppState.elseData || []).some((u) => u.id === senderId)) {
+        refresh();
+        return;
+      }
     }
+    renderTabs();
   }
 
   function clearSenderTabUnread(userId) {
@@ -69,6 +73,7 @@ const Friends = (() => {
       delete AppState.unreadElseTabSenders[userId];
       if (Object.keys(AppState.unreadElseTabSenders).length === 0) setTabDotVisible('else', false);
     }
+    renderTabs();
   }
 
   function clearFriendsTabUnread() {
@@ -115,6 +120,11 @@ const Friends = (() => {
       meta.innerHTML = `<div class="friend-name">${escapeHtml(f.displayName)}</div><div class="friend-sub">${f.status === 'online' ? 'Online' : 'Offline'}</div>`;
       applyNameColor(meta.querySelector('.friend-name'), f.nameColor);
       row.appendChild(meta);
+      if (AppState.unreadDmSenders[f.id]) {
+        const dot = document.createElement('span');
+        dot.className = 'friend-row-unread-dot';
+        row.appendChild(dot);
+      }
       row.addEventListener('click', () => Chat.openDM(f));
       el.appendChild(row);
     });
