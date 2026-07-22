@@ -45,9 +45,9 @@ const Utils = (() => {
     }
   }
 
-  // Given a plain-text video URL (YouTube or Vimeo, in any of their common
-  // link shapes), return an embeddable iframe URL, or null if it isn't a
-  // recognized video link.
+  // Given a plain-text video URL, return an embeddable iframe URL, or null
+  // if it isn't a recognized video link. Covers YouTube, Vimeo, Twitch
+  // (VODs, clips, and live channels), Dailymotion, Streamable, and Loom.
   function getVideoEmbedUrl(url) {
     let u;
     try {
@@ -56,26 +56,65 @@ const Utils = (() => {
       return null;
     }
     const host = u.hostname.replace(/^www\.|^m\./, '');
+    const path = u.pathname;
 
     if (host === 'youtube.com') {
-      if (u.pathname === '/watch') {
+      if (path === '/watch') {
         const id = u.searchParams.get('v');
         if (id) return `https://www.youtube.com/embed/${id}`;
       }
-      const shorts = u.pathname.match(/^\/shorts\/([\w-]+)/);
+      const shorts = path.match(/^\/shorts\/([\w-]+)/);
       if (shorts) return `https://www.youtube.com/embed/${shorts[1]}`;
-      const live = u.pathname.match(/^\/live\/([\w-]+)/);
+      const live = path.match(/^\/live\/([\w-]+)/);
       if (live) return `https://www.youtube.com/embed/${live[1]}`;
       return null;
     }
     if (host === 'youtu.be') {
-      const id = u.pathname.slice(1);
+      const id = path.slice(1);
       return id ? `https://www.youtube.com/embed/${id}` : null;
     }
+
     if (host === 'vimeo.com') {
-      const match = u.pathname.match(/^\/(\d+)/);
+      const match = path.match(/^\/(\d+)/);
       return match ? `https://player.vimeo.com/video/${match[1]}` : null;
     }
+
+    if (host === 'dailymotion.com') {
+      const match = path.match(/^\/video\/([\w]+)/);
+      return match ? `https://www.dailymotion.com/embed/video/${match[1]}` : null;
+    }
+    if (host === 'dai.ly') {
+      const id = path.slice(1);
+      return id ? `https://www.dailymotion.com/embed/video/${id}` : null;
+    }
+
+    if (host === 'streamable.com') {
+      const id = path.slice(1).split('/')[0];
+      return id ? `https://streamable.com/e/${id}` : null;
+    }
+
+    if (host === 'loom.com') {
+      const match = path.match(/^\/share\/([\w]+)/);
+      return match ? `https://www.loom.com/embed/${match[1]}` : null;
+    }
+
+    // Twitch requires a `parent` param matching the embedding page's own
+    // hostname, or it refuses to load — filled in from the current page.
+    if (host === 'twitch.tv') {
+      const parent = window.location.hostname;
+      const clip = path.match(/\/clip\/([\w-]+)/);
+      if (clip) return `https://clips.twitch.tv/embed?clip=${clip[1]}&parent=${parent}`;
+      const vod = path.match(/^\/videos\/(\d+)/);
+      if (vod) return `https://player.twitch.tv/?video=${vod[1]}&parent=${parent}`;
+      const channel = path.match(/^\/([a-zA-Z0-9_]+)\/?$/);
+      if (channel) return `https://player.twitch.tv/?channel=${channel[1]}&parent=${parent}`;
+      return null;
+    }
+    if (host === 'clips.twitch.tv') {
+      const slug = path.slice(1).split('/')[0];
+      return slug ? `https://clips.twitch.tv/embed?clip=${slug}&parent=${window.location.hostname}` : null;
+    }
+
     return null;
   }
 
