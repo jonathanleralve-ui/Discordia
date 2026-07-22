@@ -19,5 +19,12 @@ const AppState = {
 
   // Who's currently connected to each voice channel of the open group, keyed
   // by channel id: { [channelId]: [{ userId, displayName, avatarColor, avatarUrl, nameColor, sharing }] }
-  voiceRosters: {}
+  voiceRosters: {},
+
+  // Unread-message tracking for the rail's red dots. unreadGroupIds maps
+  // groupId -> true for groups with an unseen channel message; unreadDmSenders
+  // maps userId -> true for friends with an unseen DM. Both are runtime-only
+  // (reset on page reload) — there's no persisted "last read" state.
+  unreadGroupIds: {},
+  unreadDmSenders: {}
 };

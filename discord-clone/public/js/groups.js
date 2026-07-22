@@ -20,6 +20,9 @@ const Groups = (() => {
     const container = $('#rail-groups');
     container.innerHTML = '';
     AppState.groupsData.forEach((g) => {
+      const wrap = document.createElement('div');
+      wrap.className = 'rail-item-wrap';
+
       const el = document.createElement('div');
       el.className = 'rail-item';
       el.title = g.name;
@@ -35,14 +38,56 @@ const Groups = (() => {
         el.textContent = initials(g.name);
       }
       el.addEventListener('click', () => open(g));
-      container.appendChild(el);
+      wrap.appendChild(el);
+
+      const dot = document.createElement('span');
+      dot.className = 'unread-dot hidden';
+      dot.dataset.groupDot = g.id;
+      if (AppState.unreadGroupIds[g.id]) dot.classList.remove('hidden');
+      wrap.appendChild(dot);
+
+      container.appendChild(wrap);
     });
+  }
+
+  // Called whenever a channel message arrives for a group that isn't the
+  // one currently open in the sidebar — lights up its rail dot.
+  function markGroupUnread(groupId) {
+    AppState.unreadGroupIds[groupId] = true;
+    const dot = document.querySelector(`.unread-dot[data-group-dot="${groupId}"]`);
+    if (dot) dot.classList.remove('hidden');
+  }
+
+  // Called when the user opens a group (or a channel within it) — clears
+  // its rail dot.
+  function clearGroupUnread(groupId) {
+    delete AppState.unreadGroupIds[groupId];
+    const dot = document.querySelector(`.unread-dot[data-group-dot="${groupId}"]`);
+    if (dot) dot.classList.add('hidden');
+  }
+
+  // DMs don't have their own rail icon, so any unread private message lights
+  // up the Friends/home icon instead, tracked per-sender so opening one DM
+  // doesn't hide the dot for a still-unread one from someone else.
+  function markDmUnread(senderId) {
+    AppState.unreadDmSenders[senderId] = true;
+    const dot = $('#rail-home-dot');
+    if (dot) dot.classList.remove('hidden');
+  }
+
+  function clearDmUnread(senderId) {
+    delete AppState.unreadDmSenders[senderId];
+    if (Object.keys(AppState.unreadDmSenders).length === 0) {
+      const dot = $('#rail-home-dot');
+      if (dot) dot.classList.add('hidden');
+    }
   }
 
   function open(g) {
     AppState.activeGroup = g;
     AppState.activeChat = null;
     App.setActiveRail(document.querySelector(`.rail-item[data-group-id="${g.id}"]`));
+    clearGroupUnread(g.id);
     $('#sidebar-header').textContent = g.name;
     $('#friends-panel').classList.add('hidden');
     $('#group-panel').classList.remove('hidden');
@@ -720,5 +765,16 @@ const Groups = (() => {
     if (leaveBtn) leaveBtn.addEventListener('click', leaveActiveGroup);
   }
 
-  return { refresh, open, initUI, refreshChannelHighlight, handleJoined, handleVoiceRosterUpdate };
+  return {
+    refresh,
+    open,
+    initUI,
+    refreshChannelHighlight,
+    handleJoined,
+    handleVoiceRosterUpdate,
+    markGroupUnread,
+    clearGroupUnread,
+    markDmUnread,
+    clearDmUnread
+  };
 })();

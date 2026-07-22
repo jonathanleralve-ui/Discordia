@@ -186,6 +186,23 @@ input { font-family: inherit; }
   overflow: hidden;
 }
 
+.rail-item-wrap {
+  position: relative;
+  flex-shrink: 0;
+}
+
+.unread-dot {
+  position: absolute;
+  top: -2px;
+  right: -2px;
+  width: 14px;
+  height: 14px;
+  background: var(--red);
+  border: 2px solid var(--bg-darkest);
+  border-radius: 50%;
+  pointer-events: none;
+}
+
 .rail-item img {
   width: 100%;
   height: 100%;

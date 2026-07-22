@@ -116,6 +116,7 @@ function registerMessagingHandlers(io, socket, db) {
         senderAvatarUrl: sender.avatar_url,
         senderNameColor: sender.name_color,
         channelId: cid,
+        groupId: channel.group_id,
         attachment: att
       };
 

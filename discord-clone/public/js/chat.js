@@ -59,6 +59,7 @@ const Chat = (() => {
     AppState.activeGroup = null;
     AppState.activeChat = { type: 'dm', id: friend.id, name: friend.displayName, color: friend.avatarColor };
     App.setActiveRail($('#rail-home'));
+    Groups.clearDmUnread(friend.id);
     $('#sidebar-header').textContent = 'Friends';
     VoiceChat.refreshPanelForGroup(null);
     openChatWindow();
@@ -71,6 +72,7 @@ const Chat = (() => {
       name: channel.name,
       groupId: channel.groupId
     };
+    Groups.clearGroupUnread(channel.groupId);
     if (AppState.socket) AppState.socket.emit('channel:join', channel.id);
     openChatWindow();
     Groups.refreshChannelHighlight();
@@ -575,11 +577,13 @@ const Chat = (() => {
       appendMessage(msg);
       return;
     }
-    // Not the conversation currently open — surface a toast so an incoming
-    // DM isn't missed (mirrors the earlier fix letting non-friends who
-    // share a group message each other: those DMs now get flagged too).
+    // Not the conversation currently open — flag it as unread (red dot on
+    // the rail) and, for DMs, pop a toast too.
     if (kind === 'dm' && msg.senderId !== AppState.me.id) {
       showDmToast(msg);
+      Groups.markDmUnread(msg.senderId);
+    } else if (kind === 'channel' && msg.senderId !== AppState.me.id && msg.groupId) {
+      Groups.markGroupUnread(msg.groupId);
     }
   }
 
