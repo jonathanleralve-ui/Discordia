@@ -48,7 +48,7 @@ const Utils = (() => {
   // Given a plain-text video URL, return an embeddable iframe URL, or null
   // if it isn't a recognized video link. Covers YouTube, Vimeo, Twitch
   // (VODs, clips, and live channels), Dailymotion, Streamable, Loom,
-  // Bilibili, and Twitter/X (tweet embeds, including any attached video).
+  // and Twitter/X (tweet embeds, including any attached video).
   function getVideoEmbedUrl(url) {
     let u;
     try {
@@ -114,14 +114,6 @@ const Utils = (() => {
     if (host === 'clips.twitch.tv') {
       const slug = path.slice(1).split('/')[0];
       return slug ? `https://clips.twitch.tv/embed?clip=${slug}&parent=${window.location.hostname}` : null;
-    }
-
-    if (host === 'bilibili.com') {
-      const bv = path.match(/\/video\/(BV[\w]+)/);
-      if (bv) return `https://player.bilibili.com/player.html?bvid=${bv[1]}&page=1&high_quality=1&danmaku=0`;
-      const av = path.match(/\/video\/av(\d+)/i);
-      if (av) return `https://player.bilibili.com/player.html?aid=${av[1]}&page=1&high_quality=1&danmaku=0`;
-      return null;
     }
 
     // Twitter/X: the tweet id is all we need — this is the same embed
