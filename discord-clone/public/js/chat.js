@@ -74,6 +74,7 @@ const Chat = (() => {
       groupId: channel.groupId
     };
     Groups.clearGroupUnread(channel.groupId);
+    Groups.clearChannelUnread(channel.id);
     if (AppState.socket) AppState.socket.emit('channel:join', channel.id);
     openChatWindow();
     Groups.refreshChannelHighlight();
@@ -586,6 +587,7 @@ const Chat = (() => {
       Friends.markTabUnread(msg.senderId);
     } else if (kind === 'channel' && msg.senderId !== AppState.me.id && msg.groupId) {
       Groups.markGroupUnread(msg.groupId);
+      Groups.markChannelUnread(msg.channelId);
     }
   }
 

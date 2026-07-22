@@ -58,12 +58,22 @@ const Groups = (() => {
     if (dot) dot.classList.remove('hidden');
   }
 
+  function markChannelUnread(channelId) {
+    AppState.unreadChannelIds[channelId] = true;
+    if (AppState.activeGroupChannels.some((c) => c.id === channelId)) renderChannels();
+  }
+
   // Called when the user opens a group (or a channel within it) — clears
   // its rail dot.
   function clearGroupUnread(groupId) {
     delete AppState.unreadGroupIds[groupId];
     const dot = document.querySelector(`.unread-dot[data-group-dot="${groupId}"]`);
     if (dot) dot.classList.add('hidden');
+  }
+
+  function clearChannelUnread(channelId) {
+    delete AppState.unreadChannelIds[channelId];
+    if (AppState.activeGroupChannels.some((c) => c.id === channelId)) renderChannels();
   }
 
   // DMs don't have their own rail icon, so any unread private message lights
@@ -219,6 +229,12 @@ const Groups = (() => {
     label.className = 'channel-row-label';
     label.textContent = `${isVoice ? '🔊' : '#'} ${c.name}`;
     row.appendChild(label);
+
+    if (!isVoice && AppState.unreadChannelIds[c.id]) {
+      const dot = document.createElement('span');
+      dot.className = 'channel-row-unread-dot';
+      row.appendChild(dot);
+    }
 
     const actionsWrap = document.createElement('div');
     actionsWrap.className = 'channel-actions';
@@ -774,6 +790,8 @@ const Groups = (() => {
     handleVoiceRosterUpdate,
     markGroupUnread,
     clearGroupUnread,
+    markChannelUnread,
+    clearChannelUnread,
     markDmUnread,
     clearDmUnread
   };
