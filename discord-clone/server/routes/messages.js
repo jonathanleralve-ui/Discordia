@@ -54,7 +54,17 @@ router.get('/dm/:userId', async (req, res) => {
       [uid, otherId]
     );
     if (friendshipResult.rows.length === 0) {
-      return res.status(403).json({ error: 'You are not friends with this user' });
+      // Not friends — still allow it if they share a group (e.g. clicked
+      // from the members tab), same rule enforced on the socket side.
+      const sharedGroupResult = await db.query(
+        `SELECT 1 FROM group_members gm1
+         JOIN group_members gm2 ON gm2.group_id = gm1.group_id
+         WHERE gm1.user_id = $1 AND gm2.user_id = $2 LIMIT 1`,
+        [uid, otherId]
+      );
+      if (sharedGroupResult.rows.length === 0) {
+        return res.status(403).json({ error: 'You are not friends with this user' });
+      }
     }
 
     const messagesResult = await db.query(

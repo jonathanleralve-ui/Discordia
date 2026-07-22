@@ -249,6 +249,11 @@ const Groups = (() => {
       meta.innerHTML = `<div class="friend-name">${escapeHtml(m.displayName)}${m.id === AppState.me.id ? ' (you)' : ''}${ownerLabel}</div>`;
       applyNameColor(meta.querySelector('.friend-name'), m.nameColor);
       row.appendChild(meta);
+      // Clicking a fellow member opens a DM with them — the server allows
+      // this for anyone sharing a group, even if they aren't friends yet.
+      if (m.id !== AppState.me.id) {
+        row.addEventListener('click', () => Chat.openDM(m));
+      }
       el.appendChild(row);
     });
   }
