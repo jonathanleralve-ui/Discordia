@@ -422,6 +422,11 @@ input { font-family: inherit; }
   padding-bottom: 6px;
   margin-bottom: 8px;
 }
+.channel-row.voice-row:hover {
+  padding-top: 6px;
+  padding-bottom: 6px;
+  margin-bottom: 8px;
+}
 
 .channel-row-label {
   overflow: hidden;
