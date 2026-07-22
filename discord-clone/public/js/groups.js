@@ -177,6 +177,14 @@ const Groups = (() => {
       applyNameColor(name, p.nameColor);
       item.appendChild(name);
 
+      if (p.muted) {
+        const muteBadge = document.createElement('span');
+        muteBadge.className = 'voice-roster-mute-badge';
+        muteBadge.textContent = '🔇';
+        muteBadge.title = 'Muted';
+        item.appendChild(muteBadge);
+      }
+
       if (p.sharing) {
         const badge = document.createElement('span');
         badge.className = 'voice-roster-live-badge';

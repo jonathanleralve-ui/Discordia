@@ -134,7 +134,7 @@ const VoiceChat = (() => {
     connectedChannelName = channelName;
     connectedGroupId = groupId;
     resetPanelHeight();
-    socket.emit('voice:join', { channelId });
+    socket.emit('voice:join', { channelId, muted });
 
     $('#edit-profile-panel').classList.add('hidden');
 

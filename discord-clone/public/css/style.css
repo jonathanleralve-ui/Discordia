@@ -516,6 +516,12 @@ input { font-family: inherit; }
   flex: 1;
 }
 
+.voice-roster-mute-badge {
+  font-size: 12px;
+  flex-shrink: 0;
+  opacity: 0.85;
+}
+
 .voice-roster-live-badge {
   font-size: 10px;
   font-weight: 700;
