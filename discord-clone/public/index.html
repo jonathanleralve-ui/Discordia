@@ -212,6 +212,13 @@
       <div class="chat-input-row">
         <button class="btn-icon" id="chat-attach-btn" type="button" title="Attach file">📎</button>
         <input type="file" id="chat-file-input" class="hidden" />
+        <div class="emoji-picker-wrapper">
+          <button class="btn-icon" id="chat-emoji-btn" type="button" title="Emoji">😀</button>
+          <div id="emoji-picker" class="emoji-picker hidden">
+            <div class="emoji-picker-tabs" id="emoji-picker-tabs"></div>
+            <div class="emoji-picker-grid" id="emoji-picker-grid"></div>
+          </div>
+        </div>
         <input type="text" id="chat-input" placeholder="Message..." maxlength="4000" />
         <button class="btn-primary" id="chat-send">Send</button>
       </div>
@@ -339,6 +346,7 @@
 <script src="/js/utils.js"></script>
 <script src="/js/api.js"></script>
 <script src="/js/voice.js"></script>
+<script src="/js/emoji.js"></script>
 <script src="/js/chat.js"></script>
 <script src="/js/friends.js"></script>
 <script src="/js/groups.js"></script>

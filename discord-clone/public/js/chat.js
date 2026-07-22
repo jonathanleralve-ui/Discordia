@@ -514,6 +514,17 @@ const Chat = (() => {
     });
     $('#chat-attach-btn').addEventListener('click', () => $('#chat-file-input').click());
     $('#chat-file-input').addEventListener('change', (e) => onFileSelected(e.target.files[0]));
+
+    EmojiPicker.init((emoji) => {
+      const input = $('#chat-input');
+      const start = input.selectionStart ?? input.value.length;
+      const end = input.selectionEnd ?? input.value.length;
+      input.value = input.value.slice(0, start) + emoji + input.value.slice(end);
+      const cursor = start + emoji.length;
+      input.focus();
+      input.setSelectionRange(cursor, cursor);
+      EmojiPicker.close();
+    });
   }
 
   return {
