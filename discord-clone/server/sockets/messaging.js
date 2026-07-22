@@ -41,7 +41,7 @@ function registerMessagingHandlers(io, socket, db) {
         [uid, rid, text, att && att.url, att && att.name, att && att.type, att && att.size]
       );
 
-      const senderResult = await db.query('SELECT display_name, avatar_color, name_color FROM users WHERE id = $1', [uid]);
+      const senderResult = await db.query('SELECT display_name, avatar_color, avatar_url, name_color FROM users WHERE id = $1', [uid]);
       const sender = senderResult.rows[0];
 
       const payload = {
@@ -51,6 +51,7 @@ function registerMessagingHandlers(io, socket, db) {
         senderId: uid,
         senderName: sender.display_name,
         senderColor: sender.avatar_color,
+        senderAvatarUrl: sender.avatar_url,
         senderNameColor: sender.name_color,
         recipientId: rid,
         attachment: att
@@ -92,7 +93,7 @@ function registerMessagingHandlers(io, socket, db) {
         [uid, cid, channel.group_id, text, att && att.url, att && att.name, att && att.type, att && att.size]
       );
 
-      const senderResult = await db.query('SELECT display_name, avatar_color, name_color FROM users WHERE id = $1', [uid]);
+      const senderResult = await db.query('SELECT display_name, avatar_color, avatar_url, name_color FROM users WHERE id = $1', [uid]);
       const sender = senderResult.rows[0];
 
       const payload = {
@@ -102,6 +103,7 @@ function registerMessagingHandlers(io, socket, db) {
         senderId: uid,
         senderName: sender.display_name,
         senderColor: sender.avatar_color,
+        senderAvatarUrl: sender.avatar_url,
         senderNameColor: sender.name_color,
         channelId: cid,
         attachment: att
