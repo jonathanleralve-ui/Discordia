@@ -10,6 +10,50 @@ const Chat = (() => {
   let pendingFile = null;
   let pendingFileUrl = null;
   const MAX_UPLOAD_MB = 1024;
+  const TOAST_DURATION_MS = 6000;
+
+  // Popup shown top-right when a DM arrives for a conversation the user
+  // isn't currently looking at — same idea as Discord's incoming-message
+  // toast. Clicking it opens the DM; otherwise it dismisses itself.
+  function showDmToast(msg) {
+    const container = $('#dm-toast-container');
+    if (!container) return;
+
+    const toast = document.createElement('div');
+    toast.className = 'dm-toast';
+
+    const av = avatarEl({
+      displayName: msg.senderName,
+      avatarColor: msg.senderColor,
+      avatarUrl: msg.senderAvatarUrl
+    });
+    toast.appendChild(av);
+
+    const body = document.createElement('div');
+    body.className = 'dm-toast-body';
+    const previewText = msg.attachment ? `📎 ${msg.attachment.name}` : msg.content;
+    body.innerHTML = `
+      <div class="dm-toast-name">${escapeHtml(msg.senderName)}</div>
+      <div class="dm-toast-preview">${escapeHtml(previewText)}</div>
+    `;
+    toast.appendChild(body);
+
+    let dismissTimer = null;
+    function dismiss() {
+      if (!toast.parentNode) return;
+      clearTimeout(dismissTimer);
+      toast.classList.add('leaving');
+      setTimeout(() => toast.remove(), 200);
+    }
+
+    toast.addEventListener('click', () => {
+      openDM({ id: msg.senderId, displayName: msg.senderName, avatarColor: msg.senderColor });
+      dismiss();
+    });
+
+    container.appendChild(toast);
+    dismissTimer = setTimeout(dismiss, TOAST_DURATION_MS);
+  }
 
   function openDM(friend) {
     AppState.activeGroup = null;
@@ -523,11 +567,19 @@ const Chat = (() => {
 
   function handleIncomingMessage(kind, msg) {
     const chat = AppState.activeChat;
-    if (!chat) return;
-    if (kind === 'dm' && chat.type === 'dm' && (msg.senderId === chat.id || msg.recipientId === chat.id)) {
+    if (kind === 'dm' && chat && chat.type === 'dm' && (msg.senderId === chat.id || msg.recipientId === chat.id)) {
       appendMessage(msg);
-    } else if (kind === 'channel' && chat.type === 'channel' && msg.channelId === chat.id) {
+      return;
+    }
+    if (kind === 'channel' && chat && chat.type === 'channel' && msg.channelId === chat.id) {
       appendMessage(msg);
+      return;
+    }
+    // Not the conversation currently open — surface a toast so an incoming
+    // DM isn't missed (mirrors the earlier fix letting non-friends who
+    // share a group message each other: those DMs now get flagged too).
+    if (kind === 'dm' && msg.senderId !== AppState.me.id) {
+      showDmToast(msg);
     }
   }
 

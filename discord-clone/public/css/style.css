@@ -1670,3 +1670,61 @@ input { font-family: inherit; }
 ::-webkit-scrollbar { width: 8px; }
 ::-webkit-scrollbar-track { background: transparent; }
 ::-webkit-scrollbar-thumb { background: var(--bg-darkest); border-radius: 4px; }
+
+/* Incoming-DM toast notifications (top-right, Discord-style) */
+.dm-toast-container {
+  position: fixed;
+  top: 20px;
+  right: 20px;
+  z-index: 999;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  width: 300px;
+  pointer-events: none;
+}
+
+.dm-toast {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  background: var(--bg-mid);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 12px 14px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
+  cursor: pointer;
+  pointer-events: auto;
+  animation: dm-toast-in 0.2s ease;
+}
+
+.dm-toast:hover { background: var(--bg-light); }
+
+.dm-toast.leaving { animation: dm-toast-out 0.2s ease forwards; }
+
+.dm-toast-body { min-width: 0; flex: 1; }
+
+.dm-toast-name {
+  font-weight: 600;
+  font-size: 14px;
+  color: var(--text-bright);
+  margin-bottom: 2px;
+}
+
+.dm-toast-preview {
+  font-size: 13px;
+  color: var(--text-normal);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+@keyframes dm-toast-in {
+  from { transform: translateX(40px); opacity: 0; }
+  to { transform: translateX(0); opacity: 1; }
+}
+
+@keyframes dm-toast-out {
+  from { transform: translateX(0); opacity: 1; }
+  to { transform: translateX(40px); opacity: 0; }
+}

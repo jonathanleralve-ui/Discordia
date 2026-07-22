@@ -31,8 +31,18 @@ function registerMessagingHandlers(io, socket, db) {
         [uid, rid]
       );
       if (friendship.rows.length === 0) {
-        socket.emit('error:message', { error: 'You are not friends with this user' });
-        return;
+        // Not friends — still allow it if they share a group (e.g. clicked
+        // from the members tab), same rule enforced on the REST side.
+        const sharedGroup = await db.query(
+          `SELECT 1 FROM group_members gm1
+           JOIN group_members gm2 ON gm2.group_id = gm1.group_id
+           WHERE gm1.user_id = $1 AND gm2.user_id = $2 LIMIT 1`,
+          [uid, rid]
+        );
+        if (sharedGroup.rows.length === 0) {
+          socket.emit('error:message', { error: 'You are not friends with this user' });
+          return;
+        }
       }
 
       const inserted = await db.query(
