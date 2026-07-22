@@ -969,6 +969,15 @@ input { font-family: inherit; }
   display: block;
 }
 
+/* Tweets render as a portrait card, not a 16:9 video, so give them their
+   own fixed height instead of the video aspect-ratio box. */
+.link-video-embed--tweet {
+  aspect-ratio: auto;
+  width: 360px;
+  height: 480px;
+  background: var(--bg-lighter, #1e1f22);
+}
+
 .attachment-image-link { display: inline-block; margin-top: 6px; cursor: zoom-in; }
 .attachment-image {
   max-width: 400px;

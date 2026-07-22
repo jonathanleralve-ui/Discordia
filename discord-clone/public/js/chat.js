@@ -258,10 +258,11 @@ const Chat = (() => {
 
   function renderVideoEmbed(embedUrl) {
     const wrap = document.createElement('div');
-    wrap.className = 'link-video-embed';
+    const isTweet = embedUrl.indexOf('platform.twitter.com') !== -1;
+    wrap.className = isTweet ? 'link-video-embed link-video-embed--tweet' : 'link-video-embed';
     const iframe = document.createElement('iframe');
     iframe.src = embedUrl;
-    iframe.title = 'Embedded video';
+    iframe.title = isTweet ? 'Embedded post' : 'Embedded video';
     iframe.allow = 'accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share';
     iframe.allowFullscreen = true;
     iframe.frameBorder = '0';

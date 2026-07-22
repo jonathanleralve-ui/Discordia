@@ -47,7 +47,8 @@ const Utils = (() => {
 
   // Given a plain-text video URL, return an embeddable iframe URL, or null
   // if it isn't a recognized video link. Covers YouTube, Vimeo, Twitch
-  // (VODs, clips, and live channels), Dailymotion, Streamable, and Loom.
+  // (VODs, clips, and live channels), Dailymotion, Streamable, Loom,
+  // Bilibili, and Twitter/X (tweet embeds, including any attached video).
   function getVideoEmbedUrl(url) {
     let u;
     try {
@@ -113,6 +114,22 @@ const Utils = (() => {
     if (host === 'clips.twitch.tv') {
       const slug = path.slice(1).split('/')[0];
       return slug ? `https://clips.twitch.tv/embed?clip=${slug}&parent=${window.location.hostname}` : null;
+    }
+
+    if (host === 'bilibili.com') {
+      const bv = path.match(/\/video\/(BV[\w]+)/);
+      if (bv) return `https://player.bilibili.com/player.html?bvid=${bv[1]}&page=1&high_quality=1&danmaku=0`;
+      const av = path.match(/\/video\/av(\d+)/i);
+      if (av) return `https://player.bilibili.com/player.html?aid=${av[1]}&page=1&high_quality=1&danmaku=0`;
+      return null;
+    }
+
+    // Twitter/X: the tweet id is all we need — this is the same embed
+    // endpoint their own widgets.js script loads into an iframe, so it
+    // renders (including any attached video) without that script.
+    if (host === 'twitter.com' || host === 'x.com') {
+      const tweet = path.match(/\/status\/(\d+)/);
+      return tweet ? `https://platform.twitter.com/embed/Tweet.html?id=${tweet[1]}` : null;
     }
 
     return null;
