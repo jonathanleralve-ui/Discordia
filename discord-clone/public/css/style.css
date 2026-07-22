@@ -414,7 +414,14 @@ input { font-family: inherit; }
 }
 .channel-row:hover { background: var(--bg-light); color: var(--text-normal); }
 .channel-row.active { background: var(--blurple); color: white; font-weight: 600; }
-.channel-row.voice-row.active { background: var(--bg-light); color: var(--text-normal); font-weight: 600; }
+.channel-row.voice-row.active {
+  background: var(--bg-light);
+  color: var(--text-normal);
+  font-weight: 600;
+  padding-top: 6px;
+  padding-bottom: 6px;
+  margin-bottom: 8px;
+}
 
 .channel-row-label {
   overflow: hidden;
