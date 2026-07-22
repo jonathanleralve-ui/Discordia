@@ -116,12 +116,21 @@ function registerMessagingHandlers(io, socket, db) {
     }
   });
 
-  socket.on('typing', ({ scope, id }) => {
-    // scope: 'dm' | 'channel', id: recipientId or channelId
-    if (scope === 'dm') {
-      io.to(`user:${Number(id)}`).emit('typing', { scope, from: uid });
-    } else if (scope === 'channel') {
-      socket.to(`channel:${id}`).emit('typing', { scope, from: uid, channelId: Number(id) });
+  socket.on('typing', async ({ scope, id }) => {
+    try {
+      const senderResult = await db.query('SELECT display_name, name_color FROM users WHERE id = $1', [uid]);
+      const sender = senderResult.rows[0];
+      if (!sender) return;
+
+      const payload = { scope, from: uid, senderName: sender.display_name, senderNameColor: sender.name_color };
+
+      if (scope === 'dm') {
+        io.to(`user:${Number(id)}`).emit('typing', payload);
+      } else if (scope === 'channel') {
+        socket.to(`channel:${id}`).emit('typing', { ...payload, channelId: Number(id) });
+      }
+    } catch (err) {
+      console.error('typing error', err);
     }
   });
 

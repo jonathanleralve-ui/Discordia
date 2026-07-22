@@ -38,8 +38,8 @@ const SocketClient = (() => {
       Groups.handleVoiceRosterUpdate(channelId, participants);
     });
 
-    socket.on('typing', ({ scope, from, channelId }) => {
-      Chat.handleTypingEvent(scope, from, channelId);
+    socket.on('typing', ({ scope, from, channelId, senderName, senderNameColor }) => {
+      Chat.handleTypingEvent(scope, from, channelId, senderName, senderNameColor);
     });
 
     socket.on('error:message', ({ error }) => {

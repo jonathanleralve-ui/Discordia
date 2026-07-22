@@ -5,7 +5,8 @@ const Chat = (() => {
   const { $, escapeHtml, initials, formatTime, avatarEl, linkifyText, isEmojiOnly } = Utils;
 
   let typingTimeout = null;
-  const typingClearTimers = {};
+  // Who's currently typing, per chat: 'dm-<id>' or 'channel-<id>' -> Map(userId -> { name, timer })
+  const typingUsers = {};
   let pendingFile = null;
   let pendingFileUrl = null;
   const MAX_UPLOAD_MB = 1024;
@@ -39,7 +40,9 @@ const Chat = (() => {
     $('#chat-panel').classList.remove('hidden');
     $('#chat-title').textContent = chat.type === 'dm' ? `@${chat.name}` : `# ${chat.name}`;
     $('#chat-messages').innerHTML = '';
-    $('#typing-indicator').textContent = '';
+    const typingEl = $('#typing-indicator');
+    typingEl.innerHTML = '';
+    typingEl.classList.remove('visible');
     loadHistory();
     $('#chat-input').value = '';
     $('#chat-input').focus();
@@ -461,6 +464,52 @@ const Chat = (() => {
     renderPendingFile();
   }
 
+  function chatKey(type, id) {
+    return `${type}-${id}`;
+  }
+
+  function activeChatKey() {
+    const chat = AppState.activeChat;
+    if (!chat) return null;
+    return chatKey(chat.type, chat.id);
+  }
+
+  function registerTypingUser(key, userId, name) {
+    if (!typingUsers[key]) typingUsers[key] = new Map();
+    const users = typingUsers[key];
+    if (users.has(userId)) clearTimeout(users.get(userId).timer);
+
+    const timer = setTimeout(() => {
+      users.delete(userId);
+      renderTypingIndicator(key);
+    }, 3000);
+
+    users.set(userId, { name: name || 'Someone', timer });
+    renderTypingIndicator(key);
+  }
+
+  function renderTypingIndicator(key) {
+    if (key !== activeChatKey()) return; // event is for a chat that isn't open right now
+
+    const el = $('#typing-indicator');
+    const users = typingUsers[key];
+    const names = users ? Array.from(users.values()).map((u) => u.name) : [];
+
+    if (names.length === 0) {
+      el.classList.remove('visible');
+      el.innerHTML = '';
+      return;
+    }
+
+    let text;
+    if (names.length === 1) text = `${names[0]} is typing`;
+    else if (names.length === 2) text = `${names[0]} and ${names[1]} are typing`;
+    else text = `${names.length} people are typing`;
+
+    el.innerHTML = `<span class="typing-dots"><span></span><span></span><span></span></span><span class="typing-text">${escapeHtml(text)}...</span>`;
+    el.classList.add('visible');
+  }
+
   function emitTyping() {
     const chat = AppState.activeChat;
     if (!chat || !AppState.socket) return;
@@ -468,13 +517,6 @@ const Chat = (() => {
     typingTimeout = setTimeout(() => {
       AppState.socket.emit('typing', { scope: chat.type, id: chat.id });
     }, 150);
-  }
-
-  function showTyping(key) {
-    const el = $('#typing-indicator');
-    el.textContent = 'Someone is typing...';
-    clearTimeout(typingClearTimers[key]);
-    typingClearTimers[key] = setTimeout(() => { el.textContent = ''; }, 3000);
   }
 
   // ---- Called by SocketClient for incoming realtime events ----
@@ -489,13 +531,13 @@ const Chat = (() => {
     }
   }
 
-  function handleTypingEvent(scope, from, channelId) {
+  function handleTypingEvent(scope, from, channelId, senderName) {
     const chat = AppState.activeChat;
     if (!chat) return;
     if (scope === 'dm' && chat.type === 'dm' && from === chat.id) {
-      showTyping(`dm-${from}`);
+      registerTypingUser(chatKey('dm', chat.id), from, senderName);
     } else if (scope === 'channel' && chat.type === 'channel' && channelId === chat.id) {
-      showTyping(`c${channelId}-${from}`);
+      registerTypingUser(chatKey('channel', chat.id), from, senderName);
     }
   }
 
