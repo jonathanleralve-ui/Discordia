@@ -62,6 +62,7 @@ const Api = (() => {
 
   const messages = {
     dmHistory: (userId) => request(`/messages/dm/${userId}`),
+    others: () => request('/messages/others'),
     channelHistory: (channelId) => request(`/messages/channel/${channelId}`),
     // Multipart upload: don't set Content-Type ourselves, the browser needs
     // to add the multipart boundary.

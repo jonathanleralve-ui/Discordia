@@ -75,15 +75,15 @@
     <!-- Friends home view -->
     <div id="friends-panel">
       <div class="sidebar-tabs">
-        <button class="tab-btn active" data-tab="online">Online</button>
-        <button class="tab-btn" data-tab="all">All</button>
-        <button class="tab-btn" data-tab="pending">Pending</button>
+        <button class="tab-btn active" data-tab="friends">Friends<span class="tab-unread-dot hidden" id="tab-dot-friends"></span></button>
+        <button class="tab-btn" data-tab="else">Else<span class="tab-unread-dot hidden" id="tab-dot-else"></span></button>
+        <button class="tab-btn" data-tab="pending">Pending<span class="tab-unread-dot hidden" id="tab-dot-pending"></span></button>
         <button class="tab-btn" data-tab="add">Add Friend</button>
       </div>
 
-      <div id="tab-online" class="tab-panel"></div>
-      <div id="tab-all" class="tab-panel hidden"></div>
-      <div id="tab-pending" class="tab-panel hidden"></div>
+        <div id="tab-friends" class="tab-panel"></div>
+        <div id="tab-else" class="tab-panel hidden"></div>
+        <div id="tab-pending" class="tab-panel hidden"></div>
     </div>
 
     <!-- Group view: channel list + member list -->

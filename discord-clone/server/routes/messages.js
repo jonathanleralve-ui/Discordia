@@ -33,6 +33,18 @@ function formatMessage(m, senderMap) {
   };
 }
 
+function publicUser(u) {
+  return {
+    id: u.id,
+    username: u.username,
+    displayName: u.display_name,
+    avatarColor: u.avatar_color,
+    avatarUrl: u.avatar_url,
+    nameColor: u.name_color,
+    status: u.status
+  };
+}
+
 async function buildSenderMap(messages) {
   const ids = [...new Set(messages.map((m) => m.sender_id))];
   if (ids.length === 0) return {};
@@ -41,6 +53,27 @@ async function buildSenderMap(messages) {
   result.rows.forEach((r) => (map[r.id] = r));
   return map;
 }
+
+router.get('/others', async (req, res) => {
+  try {
+    const uid = req.user.id;
+    const result = await db.query(
+      `SELECT DISTINCT u.* FROM users u
+       JOIN messages m ON (m.sender_id = u.id AND m.recipient_id = $1) OR (m.recipient_id = u.id AND m.sender_id = $1)
+       WHERE u.id != $1
+       AND NOT EXISTS (
+         SELECT 1 FROM friendships f
+         WHERE f.status = 'accepted'
+         AND ((f.requester_id = $1 AND f.addressee_id = u.id) OR (f.requester_id = u.id AND f.addressee_id = $1))
+       )`,
+      [uid]
+    );
+    res.json({ users: result.rows.map(publicUser) });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Something went wrong, please try again' });
+  }
+});
 
 // DM history with a specific friend
 router.get('/dm/:userId', async (req, res) => {

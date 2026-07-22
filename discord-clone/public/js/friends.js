@@ -4,29 +4,31 @@ const Friends = (() => {
   const { $, $$, escapeHtml, avatarEl, avatarWithStatus, applyNameColor } = Utils;
 
   function refresh() {
-    return Api.friends.list().then((data) => {
-      AppState.friendsData = data;
+    return Promise.all([Api.friends.list(), Api.messages.others()]).then(([friendsData, othersData]) => {
+      AppState.friendsData = friendsData;
+      AppState.elseData = othersData.users;
       renderTabs();
     });
   }
 
   function handlePresenceUpdate(userId, status) {
+    let changed = false;
     const f = AppState.friendsData.friends.find((x) => x.id === userId);
-    if (f) {
-      f.status = status;
-      renderTabs();
-    }
+    if (f) { f.status = status; changed = true; }
+    const o = (AppState.elseData || []).find((x) => x.id === userId);
+    if (o) { o.status = status; changed = true; }
+    if (changed) renderTabs();
   }
 
   function renderTabs() {
     const { friends, incoming, outgoing } = AppState.friendsData;
 
-    const online = friends.filter((f) => f.status === 'online');
-    renderFriendList('#tab-online', online, 'No one is online right now.');
-    renderFriendList('#tab-all', friends, "You haven't added anyone yet.");
+    renderFriendList('#tab-friends', friends, "You haven't added anyone yet.");
+    renderFriendList('#tab-else', AppState.elseData || [], 'No other conversations yet.');
 
     const pendingEl = $('#tab-pending');
     pendingEl.innerHTML = '';
+    updatePendingDot(incoming);
     if (incoming.length === 0 && outgoing.length === 0) {
       pendingEl.innerHTML = '<div class="empty-list-hint">No pending requests.</div>';
       return;
@@ -39,6 +41,55 @@ const Friends = (() => {
       pendingEl.appendChild(sectionLabel(`OUTGOING — ${outgoing.length}`));
       outgoing.forEach((u) => pendingEl.appendChild(buildOutgoingRow(u)));
     }
+  }
+
+  function setTabDotVisible(tab, visible) {
+    const dot = $(`#tab-dot-${tab}`);
+    if (dot) dot.classList.toggle('hidden', !visible);
+  }
+
+  function markTabUnread(senderId) {
+    const status = friendStatusFor(senderId);
+    if (status === 'friends') {
+      AppState.unreadFriendsTabSenders[senderId] = true;
+      setTabDotVisible('friends', true);
+    } else {
+      AppState.unreadElseTabSenders[senderId] = true;
+      setTabDotVisible('else', true);
+      if (!(AppState.elseData || []).some((u) => u.id === senderId)) refresh();
+    }
+  }
+
+  function clearSenderTabUnread(userId) {
+    if (AppState.unreadFriendsTabSenders[userId]) {
+      delete AppState.unreadFriendsTabSenders[userId];
+      if (Object.keys(AppState.unreadFriendsTabSenders).length === 0) setTabDotVisible('friends', false);
+    }
+    if (AppState.unreadElseTabSenders[userId]) {
+      delete AppState.unreadElseTabSenders[userId];
+      if (Object.keys(AppState.unreadElseTabSenders).length === 0) setTabDotVisible('else', false);
+    }
+  }
+
+  function clearFriendsTabUnread() {
+    AppState.unreadFriendsTabSenders = {};
+    setTabDotVisible('friends', false);
+  }
+
+  function clearElseTabUnread() {
+    AppState.unreadElseTabSenders = {};
+    setTabDotVisible('else', false);
+  }
+
+  function updatePendingDot(incoming) {
+    if (!AppState.seenIncomingRequestIds) AppState.seenIncomingRequestIds = new Set();
+    const hasNew = incoming.some((u) => !AppState.seenIncomingRequestIds.has(u.friendshipId));
+    setTabDotVisible('pending', hasNew);
+  }
+
+  function clearPendingUnread() {
+    AppState.seenIncomingRequestIds = new Set(AppState.friendsData.incoming.map((u) => u.friendshipId));
+    setTabDotVisible('pending', false);
   }
 
   function sectionLabel(text) {
@@ -242,9 +293,9 @@ const Friends = (() => {
       $('#empty-state').classList.remove('hidden');
     }
     $$('.tab-btn').forEach((b) => b.classList.remove('active'));
-    $('.tab-btn[data-tab="online"]').classList.add('active');
+    $('.tab-btn[data-tab="friends"]').classList.add('active');
     $$('.tab-panel').forEach((p) => p.classList.add('hidden'));
-    $('#tab-online').classList.remove('hidden');
+    $('#tab-friends').classList.remove('hidden');
   }
 
   function initUI() {
@@ -266,6 +317,10 @@ const Friends = (() => {
         }
         $$('.tab-panel').forEach((p) => p.classList.add('hidden'));
         $(`#tab-${btn.dataset.tab}`).classList.remove('hidden');
+
+        if (btn.dataset.tab === 'friends') clearFriendsTabUnread();
+        else if (btn.dataset.tab === 'else') clearElseTabUnread();
+        else if (btn.dataset.tab === 'pending') clearPendingUnread();
       });
     });
 
@@ -279,5 +334,5 @@ const Friends = (() => {
     });
   }
 
-  return { refresh, renderTabs, handlePresenceUpdate, initUI };
+  return { refresh, renderTabs, handlePresenceUpdate, initUI, markTabUnread, clearSenderTabUnread };
 })();

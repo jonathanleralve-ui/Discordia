@@ -60,6 +60,7 @@ const Chat = (() => {
     AppState.activeChat = { type: 'dm', id: friend.id, name: friend.displayName, color: friend.avatarColor };
     App.setActiveRail($('#rail-home'));
     Groups.clearDmUnread(friend.id);
+    Friends.clearSenderTabUnread(friend.id);
     $('#sidebar-header').textContent = 'Friends';
     VoiceChat.refreshPanelForGroup(null);
     openChatWindow();
@@ -582,6 +583,7 @@ const Chat = (() => {
     if (kind === 'dm' && msg.senderId !== AppState.me.id) {
       showDmToast(msg);
       Groups.markDmUnread(msg.senderId);
+      Friends.markTabUnread(msg.senderId);
     } else if (kind === 'channel' && msg.senderId !== AppState.me.id && msg.groupId) {
       Groups.markGroupUnread(msg.groupId);
     }

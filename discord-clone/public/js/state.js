@@ -6,6 +6,7 @@ const AppState = {
   socket: null,
 
   friendsData: { friends: [], incoming: [], outgoing: [] },
+  elseData: [],
   groupsData: [],
 
   // The group currently open in the sidebar (null when on the Friends home screen)
@@ -26,5 +27,9 @@ const AppState = {
   // maps userId -> true for friends with an unseen DM. Both are runtime-only
   // (reset on page reload) — there's no persisted "last read" state.
   unreadGroupIds: {},
-  unreadDmSenders: {}
+  unreadDmSenders: {},
+
+  unreadFriendsTabSenders: {},
+  unreadElseTabSenders: {},
+  seenIncomingRequestIds: null
 };
