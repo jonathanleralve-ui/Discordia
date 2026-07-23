@@ -30,6 +30,10 @@ const SocketClient = (() => {
       Chat.handleJoinRequestResolved(requestId, status);
     });
 
+    socket.on('group:invite-resolved', ({ inviteId, status }) => {
+      Chat.handleGroupInviteResolved(inviteId, status);
+    });
+
     socket.on('group:joined', ({ group }) => {
       Groups.handleJoined(group);
     });

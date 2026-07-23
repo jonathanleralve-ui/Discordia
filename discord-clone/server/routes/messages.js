@@ -22,6 +22,18 @@ function formatMessage(m, senderMap) {
     joinRequest: m.join_request_id
       ? { id: m.join_request_id, status: m.join_request_status, userId: m.join_request_user_id, groupId: m.group_id }
       : null,
+    groupInvite: m.group_invite_id
+      ? {
+          id: m.group_invite_id,
+          status: m.group_invite_status,
+          groupId: m.invite_group_id,
+          groupName: m.invite_group_name,
+          groupIconColor: m.invite_group_icon_color,
+          groupIconUrl: m.invite_group_icon_url,
+          inviterId: m.invite_inviter_id,
+          inviteeId: m.invite_invitee_id
+        }
+      : null,
     attachment: m.attachment_url
       ? {
           url: m.attachment_url,
@@ -96,14 +108,35 @@ router.get('/dm/:userId', async (req, res) => {
         [uid, otherId]
       );
       if (sharedGroupResult.rows.length === 0) {
-        return res.status(403).json({ error: 'You are not friends with this user' });
+        // Still allow it if a server invite connects the two of them —
+        // that's delivered as a DM card and needs to be visible/actionable
+        // even between people who aren't friends and don't share a group yet.
+        const inviteConnection = await db.query(
+          `SELECT 1 FROM group_invites WHERE
+           (inviter_id = $1 AND invitee_id = $2) OR (inviter_id = $2 AND invitee_id = $1) LIMIT 1`,
+          [uid, otherId]
+        );
+        if (inviteConnection.rows.length === 0) {
+          return res.status(403).json({ error: 'You are not friends with this user' });
+        }
       }
     }
 
     const messagesResult = await db.query(
-      `SELECT * FROM messages WHERE
-       (sender_id = $1 AND recipient_id = $2) OR (sender_id = $2 AND recipient_id = $1)
-       ORDER BY id ASC LIMIT 200`,
+      `SELECT m.*,
+              gi.status AS group_invite_status,
+              gi.group_id AS invite_group_id,
+              gi.inviter_id AS invite_inviter_id,
+              gi.invitee_id AS invite_invitee_id,
+              g.name AS invite_group_name,
+              g.icon_color AS invite_group_icon_color,
+              g.icon_url AS invite_group_icon_url
+       FROM messages m
+       LEFT JOIN group_invites gi ON gi.id = m.group_invite_id
+       LEFT JOIN groups g ON g.id = gi.group_id
+       WHERE
+       (m.sender_id = $1 AND m.recipient_id = $2) OR (m.sender_id = $2 AND m.recipient_id = $1)
+       ORDER BY m.id ASC LIMIT 200`,
       [uid, otherId]
     );
 

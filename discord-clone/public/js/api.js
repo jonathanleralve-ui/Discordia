@@ -45,6 +45,13 @@ const Api = (() => {
     voiceRosters: (groupId) => request(`/groups/${groupId}/voice-rosters`),
     addMember: (groupId, userId) =>
       request(`/groups/${groupId}/members`, { method: 'POST', body: JSON.stringify({ userId }) }),
+    searchInvitable: (groupId, q) => request(`/groups/${groupId}/invitable-users?q=${encodeURIComponent(q)}`),
+    sendInvite: (groupId, userId) =>
+      request(`/groups/${groupId}/invites`, { method: 'POST', body: JSON.stringify({ userId }) }),
+    acceptInvite: (groupId, inviteId) =>
+      request(`/groups/${groupId}/invites/${inviteId}/accept`, { method: 'POST' }),
+    declineInvite: (groupId, inviteId) =>
+      request(`/groups/${groupId}/invites/${inviteId}/decline`, { method: 'POST' }),
     rename: (groupId, name, iconUrl) =>
       request(`/groups/${groupId}`, { method: 'PATCH', body: JSON.stringify({ name, iconUrl }) }),
     leave: (groupId) => request(`/groups/${groupId}/members/me`, { method: 'DELETE' })

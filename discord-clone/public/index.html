@@ -91,7 +91,7 @@
       <div class="group-panel-header">
         <div class="group-panel-actions">
           <button class="btn-icon" id="group-settings-btn" title="Group Settings">⚙</button>
-          <button class="btn-icon" id="group-add-member-btn" title="Add friend to group">+</button>
+          <button class="btn-icon" id="group-add-member-btn" title="Invite people">+</button>
           <button class="btn-icon" id="group-leave-btn" title="Leave group">⎋</button>
         </div>
       </div>
@@ -279,11 +279,13 @@
   </div>
 
   <div class="modal hidden" id="add-member-modal">
-    <h2>Add Friend to Group</h2>
-    <div id="add-member-friends" class="friend-checklist"></div>
+    <h2>Invite People</h2>
+    <label>Search by username</label>
+    <input type="text" id="add-member-search" placeholder="Search by username..." autocomplete="off" />
+    <div id="add-member-results" class="friend-checklist"></div>
+    <div class="auth-error" id="add-member-error"></div>
     <div class="modal-actions">
-      <button class="btn-secondary" id="add-member-cancel">Cancel</button>
-      <button class="btn-primary" id="add-member-confirm">Add</button>
+      <button class="btn-secondary" id="add-member-cancel">Close</button>
     </div>
   </div>
 

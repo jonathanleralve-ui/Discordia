@@ -106,6 +106,22 @@ DROP INDEX IF EXISTS idx_group_join_requests_unique;
 -- lookups fast now that a (group_id, user_id) pair can have many rows.
 CREATE INDEX IF NOT EXISTS idx_group_join_requests_lookup ON group_join_requests(group_id, user_id, status);
 
+-- The other direction of joining a group: an existing member invites a
+-- specific person rather than that person asking to join. The invite is
+-- delivered as a card in the invitee's DM with the inviter (see
+-- routes/groups.js '/:groupId/invites') and the invitee can accept or
+-- decline it from there, same as a normal DM message.
+CREATE TABLE IF NOT EXISTS group_invites (
+  id SERIAL PRIMARY KEY,
+  group_id INTEGER NOT NULL REFERENCES groups(id) ON DELETE CASCADE,
+  inviter_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  invitee_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  status TEXT NOT NULL DEFAULT 'pending', -- pending | accepted | declined
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+CREATE INDEX IF NOT EXISTS idx_group_invites_lookup ON group_invites(group_id, invitee_id, status);
+
 -- A group ("server") is now made up of channels, same as Discord: several
 -- text channels and several voice channels, organized into categories.
 CREATE TABLE IF NOT EXISTS channels (
@@ -149,6 +165,12 @@ ALTER TABLE messages ALTER COLUMN content SET DEFAULT '';
 -- that render without an avatar-attached author, unlike normal 'text' messages.
 ALTER TABLE messages ADD COLUMN IF NOT EXISTS message_type TEXT NOT NULL DEFAULT 'text';
 ALTER TABLE messages ADD COLUMN IF NOT EXISTS join_request_id INTEGER REFERENCES group_join_requests(id) ON DELETE CASCADE;
+
+-- A message can also represent a server invite sent to someone's DMs (the
+-- 'group_invite' message_type), rendered as an "X invited you to join"
+-- card with Accept/Decline actions, analogous to join_request above but
+-- living in a DM instead of a channel.
+ALTER TABLE messages ADD COLUMN IF NOT EXISTS group_invite_id INTEGER REFERENCES group_invites(id) ON DELETE CASCADE;
 
 CREATE INDEX IF NOT EXISTS idx_messages_dm ON messages(sender_id, recipient_id);
 CREATE INDEX IF NOT EXISTS idx_messages_channel ON messages(channel_id);

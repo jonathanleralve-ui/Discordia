@@ -535,21 +535,98 @@ const Groups = (() => {
       });
   }
 
+  let inviteSearchDebounce = null;
+  let inviteSearchToken = 0;
+
   function openAddMemberModal() {
     if (!AppState.activeGroup) return;
-    const list = $('#add-member-friends');
-    list.innerHTML = '';
-    const addable = AppState.friendsData.friends.filter((f) => !AppState.activeMemberIds.includes(f.id));
-    if (addable.length === 0) {
-      list.innerHTML = '<div class="empty-list-hint">All your friends are already in this group.</div>';
-    }
-    addable.forEach((f) => {
-      const row = document.createElement('label');
-      row.className = 'friend-check-row';
-      row.innerHTML = `<input type="checkbox" value="${f.id}" /> <span>${escapeHtml(f.displayName)}</span>`;
-      list.appendChild(row);
-    });
+    clearTimeout(inviteSearchDebounce);
+    inviteSearchToken++;
+    $('#add-member-search').value = '';
+    $('#add-member-results').innerHTML = '';
+    $('#add-member-error').textContent = '';
     showModal('add-member-modal');
+    $('#add-member-search').focus();
+  }
+
+  function buildInviteResultRow(u) {
+    const row = document.createElement('div');
+    row.className = 'friend-row search-result-row';
+    row.appendChild(avatarWithStatus(u));
+
+    const meta = document.createElement('div');
+    meta.className = 'friend-meta';
+    meta.innerHTML = `<div class="friend-name">${escapeHtml(u.displayName)}</div><div class="friend-sub">@${escapeHtml(u.username)}</div>`;
+    row.appendChild(meta);
+
+    const action = document.createElement('div');
+    action.className = 'search-result-action';
+    row.appendChild(action);
+
+    if (u.isMember) {
+      action.classList.add('muted');
+      action.textContent = 'Already in server';
+    } else if (u.pendingInvite) {
+      action.classList.add('muted');
+      action.textContent = 'Invite sent';
+    } else {
+      action.classList.add('addable');
+      action.textContent = '+ Invite';
+      row.classList.add('clickable');
+      row.addEventListener('click', () => {
+        if (!row.classList.contains('clickable')) return;
+        inviteFromSearch(u, row, action);
+      });
+    }
+
+    return row;
+  }
+
+  function inviteFromSearch(u, row, action) {
+    row.classList.remove('clickable');
+    row.classList.add('sending');
+    action.textContent = 'Sending...';
+    $('#add-member-error').textContent = '';
+    Api.groups.sendInvite(AppState.activeGroup.id, u.id)
+      .then(() => {
+        row.classList.remove('sending');
+        action.classList.remove('addable');
+        action.classList.add('muted');
+        action.textContent = 'Invite sent';
+      })
+      .catch((err) => {
+        row.classList.remove('sending');
+        row.classList.add('clickable');
+        action.textContent = '+ Invite';
+        $('#add-member-error').textContent = err.message;
+      });
+  }
+
+  function renderInviteResults(users) {
+    const el = $('#add-member-results');
+    el.innerHTML = '';
+    if (users.length === 0) {
+      el.innerHTML = '<div class="empty-list-hint">No matching usernames.</div>';
+      return;
+    }
+    users.forEach((u) => el.appendChild(buildInviteResultRow(u)));
+  }
+
+  function runInviteSearch(query) {
+    const myToken = ++inviteSearchToken;
+    if (!query || !AppState.activeGroup) {
+      $('#add-member-results').innerHTML = '';
+      return;
+    }
+    Api.groups.searchInvitable(AppState.activeGroup.id, query)
+      .then((data) => {
+        if (myToken !== inviteSearchToken) return; // a newer search superseded this one
+        renderInviteResults(data.users);
+      })
+      .catch(() => {
+        if (myToken !== inviteSearchToken) return;
+        $('#add-member-results').innerHTML = '<div class="empty-list-hint">Search failed, try again.</div>';
+      });
   }
 
   function openCreateChannelModal(type) {
@@ -750,19 +827,11 @@ const Groups = (() => {
 
     $('#group-add-member-btn').addEventListener('click', openAddMemberModal);
     $('#add-member-cancel').addEventListener('click', closeModals);
-    $('#add-member-confirm').addEventListener('click', () => {
-      const ids = Array.from($('#add-member-friends').querySelectorAll('input:checked')).map((i) => Number(i.value));
-      if (ids.length === 0) { closeModals(); return; }
-      const groupId = AppState.activeGroup.id;
-      Promise.all(ids.map((userId) => Api.groups.addMember(groupId, userId)))
-        .then(() => {
-          closeModals();
-          return Api.groups.members(groupId).then((data) => {
-            AppState.activeMemberIds = data.members.map((m) => m.id);
-            renderMembers(data.members);
-          });
-        })
-        .catch((err) => alert(err.message));
+    $('#add-member-search').addEventListener('input', () => {
+      const query = $('#add-member-search').value.trim();
+      $('#add-member-error').textContent = '';
+      clearTimeout(inviteSearchDebounce);
+      inviteSearchDebounce = setTimeout(() => runInviteSearch(query), 250);
     });
 
     $('#channel-type-text').addEventListener('click', () => setCreateChannelType('text'));

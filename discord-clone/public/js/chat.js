@@ -31,7 +31,9 @@ const Chat = (() => {
 
     const body = document.createElement('div');
     body.className = 'dm-toast-body';
-    const previewText = msg.attachment ? `📎 ${msg.attachment.name}` : msg.content;
+    const previewText = msg.messageType === 'group_invite'
+      ? `Invited you to join ${msg.groupInvite && msg.groupInvite.groupName ? msg.groupInvite.groupName : 'a server'}`
+      : (msg.attachment ? `📎 ${msg.attachment.name}` : msg.content);
     body.innerHTML = `
       <div class="dm-toast-name">${escapeHtml(msg.senderName)}</div>
       <div class="dm-toast-preview">${escapeHtml(previewText)}</div>
@@ -112,6 +114,10 @@ const Chat = (() => {
   function appendMessage(m) {
     if (m.messageType === 'join_request') {
       appendJoinRequestMessage(m);
+      return;
+    }
+    if (m.messageType === 'group_invite') {
+      appendGroupInviteMessage(m);
       return;
     }
     if (m.messageType === 'system') {
@@ -295,6 +301,116 @@ const Chat = (() => {
       acceptedLabel.classList.add('hidden');
       declinedLabel.classList.add('hidden');
     }
+  }
+
+  function appendGroupInviteMessage(m) {
+    const list = $('#chat-messages');
+    const row = document.createElement('div');
+    row.className = 'message-row group-invite-row';
+    row.dataset.inviteId = m.groupInvite.id;
+
+    const av = avatarEl({
+      displayName: m.senderName,
+      avatarColor: m.senderColor,
+      avatarUrl: m.senderAvatarUrl
+    });
+    row.appendChild(av);
+
+    const invite = m.groupInvite;
+    const groupName = invite.groupName || 'this server';
+    const groupColor = invite.groupIconColor || 'var(--blurple)';
+    const groupIconUrl = invite.groupIconUrl;
+    const isMe = m.senderId === AppState.me.id;
+
+    const groupIconInner = groupIconUrl
+      ? `<img src="${escapeHtml(groupIconUrl)}" alt="${escapeHtml(groupName)}">`
+      : escapeHtml(initials(groupName));
+
+    const body = document.createElement('div');
+    body.className = 'message-body';
+    body.innerHTML = `
+      <div class="invite-card">
+        <div class="invite-card-label">${isMe ? 'You invited them to join a server' : `${escapeHtml(m.senderName)} invited you to join a server`}</div>
+        <div class="invite-card-body">
+          <div class="invite-card-icon" style="background: ${groupColor}">${groupIconInner}</div>
+          <div class="invite-card-info">
+            <div class="invite-card-server-name">${escapeHtml(groupName)}</div>
+            <div class="invite-card-channel">Server invite</div>
+          </div>
+          ${isMe ? '' : `
+            <button type="button" class="btn-invite-accept group-invite-accept-btn">Accept</button>
+            <button type="button" class="btn-invite-decline group-invite-decline-btn">Decline</button>
+          `}
+          <span class="join-request-resolved-label hidden">Accepted ✓</span>
+          <span class="join-request-declined-label hidden">Declined ✕</span>
+        </div>
+      </div>
+    `;
+    row.appendChild(body);
+    list.appendChild(row);
+
+    applyGroupInviteState(row, invite);
+
+    const acceptBtn = body.querySelector('.group-invite-accept-btn');
+    if (acceptBtn) {
+      acceptBtn.addEventListener('click', () => {
+        acceptBtn.disabled = true;
+        acceptBtn.textContent = 'Accepting...';
+        Api.groups.acceptInvite(invite.groupId, invite.id)
+          .then(() => applyGroupInviteState(row, { status: 'accepted' }))
+          .catch((err) => {
+            acceptBtn.disabled = false;
+            acceptBtn.textContent = 'Accept';
+            alert(err.message);
+          });
+      });
+    }
+
+    const declineBtn = body.querySelector('.group-invite-decline-btn');
+    if (declineBtn) {
+      declineBtn.addEventListener('click', () => {
+        declineBtn.disabled = true;
+        declineBtn.textContent = 'Declining...';
+        Api.groups.declineInvite(invite.groupId, invite.id)
+          .then(() => applyGroupInviteState(row, { status: 'declined' }))
+          .catch((err) => {
+            declineBtn.disabled = false;
+            declineBtn.textContent = 'Decline';
+            alert(err.message);
+          });
+      });
+    }
+
+    scrollToBottom();
+  }
+
+  function applyGroupInviteState(row, invite) {
+    const acceptBtn = row.querySelector('.group-invite-accept-btn');
+    const declineBtn = row.querySelector('.group-invite-decline-btn');
+    const acceptedLabel = row.querySelector('.join-request-resolved-label');
+    const declinedLabel = row.querySelector('.join-request-declined-label');
+    if (invite.status === 'accepted') {
+      if (acceptBtn) acceptBtn.classList.add('hidden');
+      if (declineBtn) declineBtn.classList.add('hidden');
+      acceptedLabel.classList.remove('hidden');
+      declinedLabel.classList.add('hidden');
+    } else if (invite.status === 'declined') {
+      if (acceptBtn) acceptBtn.classList.add('hidden');
+      if (declineBtn) declineBtn.classList.add('hidden');
+      acceptedLabel.classList.add('hidden');
+      declinedLabel.classList.remove('hidden');
+    } else {
+      if (acceptBtn) acceptBtn.classList.remove('hidden');
+      if (declineBtn) declineBtn.classList.remove('hidden');
+      acceptedLabel.classList.add('hidden');
+      declinedLabel.classList.add('hidden');
+    }
+  }
+
+  function handleGroupInviteResolved(inviteId, status) {
+    const row = document.querySelector(`.group-invite-row[data-invite-id="${inviteId}"]`);
+    if (!row) return;
+    applyGroupInviteState(row, { status });
   }
 
   function isImage(type) { return /^image\//.test(type || ''); }
@@ -638,6 +754,7 @@ const Chat = (() => {
     handleIncomingMessage,
     handleTypingEvent,
     handleJoinRequestResolved,
+    handleGroupInviteResolved,
     handleMessageDeleted,
     initUI
   };

@@ -401,6 +401,230 @@ router.post('/:groupId/join-requests/:requestId/decline', async (req, res) => {
   }
 });
 
+// Search any user by username to invite them into a group (used by the "+"
+// button on a group's member list). Unlike the friends search, this is
+// scoped to the group so results can flag whether the user is already a
+// member or already has a pending invite waiting in their DMs.
+router.get('/:groupId/invitable-users', async (req, res) => {
+  try {
+    const uid = req.user.id;
+    const groupId = Number(req.params.groupId);
+
+    const memberCheck = await db.query(
+      'SELECT 1 FROM group_members WHERE group_id = $1 AND user_id = $2',
+      [groupId, uid]
+    );
+    if (memberCheck.rows.length === 0) return res.status(403).json({ error: 'Not a member of this group' });
+
+    const q = String(req.query.q || '').trim().toLowerCase();
+    if (!q) return res.json({ users: [] });
+
+    const result = await db.query(
+      `SELECT u.*,
+              EXISTS (
+                SELECT 1 FROM group_members gm WHERE gm.group_id = $1 AND gm.user_id = u.id
+              ) AS is_member,
+              EXISTS (
+                SELECT 1 FROM group_invites gi
+                WHERE gi.group_id = $1 AND gi.invitee_id = u.id AND gi.status = 'pending'
+              ) AS pending_invite
+       FROM users u
+       WHERE u.username ILIKE $2 AND u.id != $3
+       ORDER BY u.username ASC
+       LIMIT 10`,
+      [groupId, `%${q}%`, uid]
+    );
+
+    res.json({ users: result.rows.map((u) => ({ ...publicUser(u), isMember: u.is_member, pendingInvite: u.pending_invite })) });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Something went wrong, please try again' });
+  }
+});
+
+// Invite a specific person to a group — delivered as a message in the
+// invitee's DM with the inviter (see messages.js formatMessage / the
+// group_invite message_type) rather than adding them right away. The
+// invitee accepts or declines it from their own DMs.
+router.post('/:groupId/invites', async (req, res) => {
+  try {
+    const uid = req.user.id;
+    const groupId = Number(req.params.groupId);
+    const { userId } = req.body || {};
+    const inviteeId = Number(userId);
+    if (!Number.isInteger(inviteeId)) return res.status(400).json({ error: 'A user to invite is required' });
+    if (inviteeId === uid) return res.status(400).json({ error: "You can't invite yourself" });
+
+    const memberCheck = await db.query(
+      'SELECT 1 FROM group_members WHERE group_id = $1 AND user_id = $2',
+      [groupId, uid]
+    );
+    if (memberCheck.rows.length === 0) return res.status(403).json({ error: 'Not a member of this group' });
+
+    const group = (await db.query('SELECT * FROM groups WHERE id = $1', [groupId])).rows[0];
+    if (!group) return res.status(404).json({ error: 'Group not found' });
+
+    const invitee = (await db.query('SELECT * FROM users WHERE id = $1', [inviteeId])).rows[0];
+    if (!invitee) return res.status(404).json({ error: 'User not found' });
+
+    const alreadyMember = await db.query(
+      'SELECT 1 FROM group_members WHERE group_id = $1 AND user_id = $2',
+      [groupId, inviteeId]
+    );
+    if (alreadyMember.rows.length > 0) return res.status(400).json({ error: 'That person is already in this group' });
+
+    const existingInvite = await db.query(
+      `SELECT * FROM group_invites WHERE group_id = $1 AND invitee_id = $2 AND status = 'pending'`,
+      [groupId, inviteeId]
+    );
+    if (existingInvite.rows.length > 0) {
+      return res.status(200).json({ inviteId: existingInvite.rows[0].id, alreadyPending: true });
+    }
+
+    const inserted = await db.query(
+      `INSERT INTO group_invites (group_id, inviter_id, invitee_id, status)
+       VALUES ($1, $2, $3, 'pending') RETURNING *`,
+      [groupId, uid, inviteeId]
+    );
+    const invite = inserted.rows[0];
+
+    const msgInserted = await db.query(
+      `INSERT INTO messages (sender_id, recipient_id, content, message_type, group_invite_id)
+       VALUES ($1, $2, '', 'group_invite', $3) RETURNING id, created_at`,
+      [uid, inviteeId, invite.id]
+    );
+
+    const inviterResult = await db.query('SELECT display_name, avatar_color, avatar_url, name_color FROM users WHERE id = $1', [uid]);
+    const inviter = inviterResult.rows[0];
+
+    const payload = {
+      id: msgInserted.rows[0].id,
+      content: '',
+      createdAt: msgInserted.rows[0].created_at,
+      senderId: uid,
+      senderName: inviter.display_name,
+      senderColor: inviter.avatar_color,
+      senderAvatarUrl: inviter.avatar_url,
+      senderNameColor: inviter.name_color,
+      recipientId: inviteeId,
+      messageType: 'group_invite',
+      groupInvite: {
+        id: invite.id,
+        status: 'pending',
+        groupId: group.id,
+        groupName: group.name,
+        groupIconColor: group.icon_color,
+        groupIconUrl: group.icon_url,
+        inviterId: uid,
+        inviteeId
+      }
+    };
+
+    const io = req.app.get('io');
+    io.to(`user:${uid}`).to(`user:${inviteeId}`).emit('dm:message', payload);
+
+    res.status(201).json({ inviteId: invite.id });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Something went wrong, please try again' });
+  }
+});
+
+// Accept an invite — only the invitee can do this
+router.post('/:groupId/invites/:inviteId/accept', async (req, res) => {
+  try {
+    const uid = req.user.id;
+    const groupId = Number(req.params.groupId);
+    const inviteId = Number(req.params.inviteId);
+
+    const inviteResult = await db.query(
+      'SELECT * FROM group_invites WHERE id = $1 AND group_id = $2',
+      [inviteId, groupId]
+    );
+    const invite = inviteResult.rows[0];
+    if (!invite) return res.status(404).json({ error: 'Invite not found' });
+    if (invite.invitee_id !== uid) return res.status(403).json({ error: 'This invite is not for you' });
+    if (invite.status !== 'pending') return res.status(400).json({ error: 'This invite was already resolved' });
+
+    await db.query(`UPDATE group_invites SET status = 'accepted' WHERE id = $1`, [inviteId]);
+    await db.query(
+      'INSERT INTO group_members (group_id, user_id) VALUES ($1, $2) ON CONFLICT DO NOTHING',
+      [groupId, uid]
+    );
+
+    const group = (await db.query('SELECT * FROM groups WHERE id = $1', [groupId])).rows[0];
+
+    const io = req.app.get('io');
+    io.to(`user:${invite.inviter_id}`).to(`user:${uid}`).emit('group:invite-resolved', { inviteId, status: 'accepted' });
+
+    // Post a "X has joined the server" system line in the default channel,
+    // same as accepting a join request does, so existing members see it.
+    const channelResult = await db.query(
+      `SELECT * FROM channels WHERE group_id = $1 AND type = 'text' ORDER BY position ASC, id ASC LIMIT 1`,
+      [groupId]
+    );
+    const channel = channelResult.rows[0];
+    if (channel) {
+      const joinerResult = await db.query('SELECT display_name, avatar_color FROM users WHERE id = $1', [uid]);
+      const joiner = joinerResult.rows[0];
+      const systemMsgInserted = await db.query(
+        `INSERT INTO messages (sender_id, channel_id, group_id, content, message_type)
+         VALUES ($1, $2, $3, $4, 'system') RETURNING id, created_at`,
+        [uid, channel.id, groupId, `${joiner.display_name} has joined the server`]
+      );
+      io.to(`channel:${channel.id}`).emit('channel:message', {
+        id: systemMsgInserted.rows[0].id,
+        content: `${joiner.display_name} has joined the server`,
+        createdAt: systemMsgInserted.rows[0].created_at,
+        senderId: uid,
+        senderName: joiner.display_name,
+        senderColor: joiner.avatar_color,
+        channelId: channel.id,
+        messageType: 'system'
+      });
+    }
+
+    // The invitee isn't in the group's rooms yet, so tell their client
+    // directly to refresh its group list and hop into the new group.
+    io.to(`user:${uid}`).emit('group:joined', {
+      group: { id: group.id, name: group.name, iconColor: group.icon_color, iconUrl: group.icon_url, ownerId: group.owner_id }
+    });
+
+    res.json({ ok: true });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Something went wrong, please try again' });
+  }
+});
+
+// Decline an invite — only the invitee can do this
+router.post('/:groupId/invites/:inviteId/decline', async (req, res) => {
+  try {
+    const uid = req.user.id;
+    const groupId = Number(req.params.groupId);
+    const inviteId = Number(req.params.inviteId);
+
+    const inviteResult = await db.query(
+      'SELECT * FROM group_invites WHERE id = $1 AND group_id = $2',
+      [inviteId, groupId]
+    );
+    const invite = inviteResult.rows[0];
+    if (!invite) return res.status(404).json({ error: 'Invite not found' });
+    if (invite.invitee_id !== uid) return res.status(403).json({ error: 'This invite is not for you' });
+    if (invite.status !== 'pending') return res.status(400).json({ error: 'This invite was already resolved' });
+
+    await db.query(`UPDATE group_invites SET status = 'declined' WHERE id = $1`, [inviteId]);
+
+    const io = req.app.get('io');
+    io.to(`user:${invite.inviter_id}`).to(`user:${uid}`).emit('group:invite-resolved', { inviteId, status: 'declined' });
+
+    res.json({ ok: true });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Something went wrong, please try again' });
+  }
+});
+
 // Add a friend to a group
 router.post('/:groupId/members', async (req, res) => {
   try {
