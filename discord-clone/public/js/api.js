@@ -68,9 +68,11 @@ const Api = (() => {
   };
 
   const messages = {
-    dmHistory: (userId) => request(`/messages/dm/${userId}`),
+    dmHistory: (userId, beforeId) =>
+      request(`/messages/dm/${userId}${beforeId ? `?before=${beforeId}` : ''}`),
     others: () => request('/messages/others'),
-    channelHistory: (channelId) => request(`/messages/channel/${channelId}`),
+    channelHistory: (channelId, beforeId) =>
+      request(`/messages/channel/${channelId}${beforeId ? `?before=${beforeId}` : ''}`),
     // Multipart upload: don't set Content-Type ourselves, the browser needs
     // to add the multipart boundary.
     upload: (file) => {

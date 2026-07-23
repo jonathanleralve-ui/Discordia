@@ -87,11 +87,14 @@ router.get('/others', async (req, res) => {
   }
 });
 
+const PAGE_SIZE = 200;
+
 // DM history with a specific friend
 router.get('/dm/:userId', async (req, res) => {
   try {
     const uid = req.user.id;
     const otherId = Number(req.params.userId);
+    const before = req.query.before ? Number(req.query.before) : null;
 
     const friendshipResult = await db.query(
       `SELECT * FROM friendships WHERE status = 'accepted' AND
@@ -122,6 +125,13 @@ router.get('/dm/:userId', async (req, res) => {
       }
     }
 
+    const params = [uid, otherId];
+    let cursorClause = '';
+    if (before) {
+      params.push(before);
+      cursorClause = `AND m.id < $${params.length}`;
+    }
+
     const messagesResult = await db.query(
       `SELECT m.*,
               gi.status AS group_invite_status,
@@ -135,13 +145,20 @@ router.get('/dm/:userId', async (req, res) => {
        LEFT JOIN group_invites gi ON gi.id = m.group_invite_id
        LEFT JOIN groups g ON g.id = gi.group_id
        WHERE
-       (m.sender_id = $1 AND m.recipient_id = $2) OR (m.sender_id = $2 AND m.recipient_id = $1)
-       ORDER BY m.id ASC LIMIT 200`,
-      [uid, otherId]
+       ((m.sender_id = $1 AND m.recipient_id = $2) OR (m.sender_id = $2 AND m.recipient_id = $1))
+       ${cursorClause}
+       ORDER BY m.id DESC LIMIT ${PAGE_SIZE}`,
+      params
     );
 
-    const senderMap = await buildSenderMap(messagesResult.rows);
-    res.json({ messages: messagesResult.rows.map((m) => formatMessage(m, senderMap)) });
+    // Query pulls back the most recent page newest-first so LIMIT keeps the
+    // right end of a long history; flip back to ascending for display.
+    const rows = messagesResult.rows.reverse();
+    const senderMap = await buildSenderMap(rows);
+    res.json({
+      messages: rows.map((m) => formatMessage(m, senderMap)),
+      hasMore: messagesResult.rows.length === PAGE_SIZE
+    });
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: 'Something went wrong, please try again' });
@@ -153,6 +170,7 @@ router.get('/channel/:channelId', async (req, res) => {
   try {
     const uid = req.user.id;
     const channelId = Number(req.params.channelId);
+    const before = req.query.before ? Number(req.query.before) : null;
 
     const channelResult = await db.query('SELECT * FROM channels WHERE id = $1', [channelId]);
     const channel = channelResult.rows[0];
@@ -164,16 +182,29 @@ router.get('/channel/:channelId', async (req, res) => {
     );
     if (memberCheck.rows.length === 0) return res.status(403).json({ error: 'Not a member of this group' });
 
+    const params = [channelId];
+    let cursorClause = '';
+    if (before) {
+      params.push(before);
+      cursorClause = `AND m.id < $${params.length}`;
+    }
+
     const messagesResult = await db.query(
       `SELECT m.*, gjr.status AS join_request_status, gjr.user_id AS join_request_user_id
        FROM messages m
        LEFT JOIN group_join_requests gjr ON gjr.id = m.join_request_id
-       WHERE m.channel_id = $1 ORDER BY m.id ASC LIMIT 200`,
-      [channelId]
+       WHERE m.channel_id = $1 ${cursorClause}
+       ORDER BY m.id DESC LIMIT ${PAGE_SIZE}`,
+      params
     );
 
-    const senderMap = await buildSenderMap(messagesResult.rows);
-    res.json({ messages: messagesResult.rows.map((m) => formatMessage(m, senderMap)) });
+    // Same newest-first-then-reverse trick as the DM route above.
+    const rows = messagesResult.rows.reverse();
+    const senderMap = await buildSenderMap(rows);
+    res.json({
+      messages: rows.map((m) => formatMessage(m, senderMap)),
+      hasMore: messagesResult.rows.length === PAGE_SIZE
+    });
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: 'Something went wrong, please try again' });

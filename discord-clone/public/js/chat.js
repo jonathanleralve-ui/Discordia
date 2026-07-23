@@ -9,6 +9,16 @@ const Chat = (() => {
   const typingUsers = {};
   let pendingFile = null;
   let pendingFileUrl = null;
+
+  // History pagination state for the currently open chat. Reset every time
+  // a new DM/channel is opened in openChatWindow -> loadHistory.
+  let oldestLoadedMessageId = null;
+  let hasMoreHistory = false;
+  let isLoadingOlderMessages = false;
+  // 'append' = new/initial messages go to the bottom (default). 'prepend' =
+  // an older-history page is being spliced in at the top, so render
+  // functions insert at the top and skip the auto-scroll-to-bottom.
+  let insertMode = 'append';
   const MAX_UPLOAD_MB = 1024;
   const TOAST_DURATION_MS = 6000;
 
@@ -101,14 +111,76 @@ const Chat = (() => {
 
   function loadHistory() {
     const chat = AppState.activeChat;
+    oldestLoadedMessageId = null;
+    hasMoreHistory = false;
+    isLoadingOlderMessages = false;
     const request = chat.type === 'dm' ? Api.messages.dmHistory(chat.id) : Api.messages.channelHistory(chat.id);
     request.then((data) => {
       $('#chat-messages').innerHTML = '';
       data.messages.forEach((m) => appendMessage(m));
       scrollToBottom();
+      oldestLoadedMessageId = data.messages.length ? data.messages[0].id : null;
+      hasMoreHistory = !!data.hasMore;
     }).catch((err) => {
       $('#chat-messages').innerHTML = `<div class="empty-list-hint">${escapeHtml(err.message)}</div>`;
     });
+  }
+
+  // Called when the user scrolls near the top of the message pane. Fetches
+  // the next page of older messages (before the oldest one currently
+  // rendered) and splices it in above the existing history without moving
+  // the messages already on screen.
+  function loadOlderMessages() {
+    const chat = AppState.activeChat;
+    if (!chat || isLoadingOlderMessages || !hasMoreHistory || oldestLoadedMessageId == null) return;
+    isLoadingOlderMessages = true;
+
+    const request = chat.type === 'dm'
+      ? Api.messages.dmHistory(chat.id, oldestLoadedMessageId)
+      : Api.messages.channelHistory(chat.id, oldestLoadedMessageId);
+
+    request.then((data) => {
+      hasMoreHistory = !!data.hasMore;
+      if (!data.messages.length) return;
+
+      const list = $('#chat-messages');
+      const previousScrollHeight = list.scrollHeight;
+      const previousScrollTop = list.scrollTop;
+
+      // data.messages is oldest-to-newest for this page; insert in reverse
+      // so each insertBefore(firstChild) lands them in the right final order.
+      insertMode = 'prepend';
+      for (let i = data.messages.length - 1; i >= 0; i--) {
+        appendMessage(data.messages[i]);
+      }
+      insertMode = 'append';
+
+      // Keep whatever the user was looking at anchored in place instead of
+      // jumping around as content gets added above it.
+      list.scrollTop = previousScrollTop + (list.scrollHeight - previousScrollHeight);
+
+      oldestLoadedMessageId = data.messages[0].id;
+    }).catch((err) => {
+      console.error('Failed to load older messages:', err);
+    }).finally(() => {
+      isLoadingOlderMessages = false;
+    });
+  }
+
+  // Route a rendered row to the top (older-history splice) or bottom
+  // (normal new/initial message) of the list depending on insertMode.
+  function insertRow(list, row) {
+    if (insertMode === 'prepend') {
+      list.insertBefore(row, list.firstChild);
+    } else {
+      list.appendChild(row);
+    }
+  }
+
+  // Auto-scroll only makes sense when we just added something at the
+  // bottom; skip it while splicing older history in above the fold.
+  function maybeScrollToBottom() {
+    if (insertMode !== 'prepend') scrollToBottom();
   }
 
   function appendMessage(m) {
@@ -170,8 +242,8 @@ const Chat = (() => {
       row.appendChild(delBtn);
     }
 
-    list.appendChild(row);
-    scrollToBottom();
+    insertRow(list, row);
+    maybeScrollToBottom();
   }
 
   function deleteMessage(messageId) {
@@ -196,8 +268,8 @@ const Chat = (() => {
         <span class="message-time">${formatTime(m.createdAt)}</span>
       </div>
     `;
-    list.appendChild(row);
-    scrollToBottom();
+    insertRow(list, row);
+    maybeScrollToBottom();
   }
 
   function appendJoinRequestMessage(m) {
@@ -247,7 +319,7 @@ const Chat = (() => {
       </div>
     `;
     row.appendChild(body);
-    list.appendChild(row);
+    insertRow(list, row);
 
     applyJoinRequestState(row, m.joinRequest);
 
@@ -277,7 +349,7 @@ const Chat = (() => {
         });
     });
 
-    scrollToBottom();
+    maybeScrollToBottom();
   }
 
   function applyJoinRequestState(row, joinRequest) {
@@ -347,7 +419,7 @@ const Chat = (() => {
       </div>
     `;
     row.appendChild(body);
-    list.appendChild(row);
+    insertRow(list, row);
 
     applyGroupInviteState(row, invite);
 
@@ -381,7 +453,7 @@ const Chat = (() => {
       });
     }
 
-    scrollToBottom();
+    maybeScrollToBottom();
   }
 
   function applyGroupInviteState(row, invite) {
@@ -735,6 +807,11 @@ const Chat = (() => {
   }
 
   function initUI() {
+    $('#chat-messages').addEventListener('scroll', () => {
+      const el = $('#chat-messages');
+      if (el.scrollTop < 150) loadOlderMessages();
+    });
+
     $('#chat-send').addEventListener('click', sendMessage);
     $('#chat-input').addEventListener('keydown', (e) => {
       if (e.key === 'Enter') {
