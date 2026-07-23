@@ -596,6 +596,14 @@ router.post('/:groupId/invites/:inviteId/accept', async (req, res) => {
     const io = req.app.get('io');
     io.to(`user:${invite.inviter_id}`).to(`user:${uid}`).emit('group:invite-resolved', { inviteId, status: 'accepted' });
 
+    // Existing members watching this group's member list have no other
+    // signal that someone new just joined via invite (unlike join-requests
+    // and direct-add, which already broadcast this) — without it they'd
+    // only see the new face after a refresh.
+    const joinerUser = (await db.query('SELECT * FROM users WHERE id = $1', [uid])).rows[0];
+    const memberIds = await memberUserIds(groupId);
+    io.to(memberRooms(memberIds)).emit('group:member-added', { groupId, member: publicUser(joinerUser) });
+
     // Post a "X has joined the server" system line in the default channel,
     // same as accepting a join request does, so existing members see it.
     const channelResult = await db.query(
