@@ -23,6 +23,19 @@ function randomColor() {
   return COLORS[Math.floor(Math.random() * COLORS.length)];
 }
 
+// Every connected socket joins a `user:${id}` room for the lifetime of its
+// connection (see sockets/index.js), regardless of what groups/channels it
+// belongs to — so broadcasting a group-wide change is just "look up who's
+// in the group right now and emit to each of their user rooms" rather than
+// needing a dedicated per-group socket room to stay in sync with membership.
+async function memberUserIds(groupId) {
+  const result = await db.query('SELECT user_id FROM group_members WHERE group_id = $1', [groupId]);
+  return result.rows.map((r) => r.user_id);
+}
+function memberRooms(userIds) {
+  return userIds.map((id) => `user:${id}`);
+}
+
 // List groups the current user belongs to
 router.get('/', async (req, res) => {
   try {
@@ -81,8 +94,22 @@ router.post('/', async (req, res) => {
 
     await client.query('COMMIT');
 
+    const formattedGroup = { id: group.id, name: group.name, iconColor: group.icon_color, iconUrl: group.icon_url, ownerId: group.owner_id };
+
+    // The creator sees this group locally right after their own request
+    // resolves, but anyone else added at creation time (checked off in the
+    // "Add Friends" list) has no other signal that it exists — without
+    // this they'd only see it in their rail after a refresh.
+    if (Array.isArray(memberIds)) {
+      const addedIds = [...new Set(memberIds.map(Number).filter((mid) => Number.isInteger(mid) && mid !== uid))];
+      if (addedIds.length > 0) {
+        const io = req.app.get('io');
+        io.to(memberRooms(addedIds)).emit('group:added', { group: formattedGroup });
+      }
+    }
+
     res.status(201).json({
-      group: { id: group.id, name: group.name, iconColor: group.icon_color, iconUrl: group.icon_url, ownerId: group.owner_id }
+      group: formattedGroup
     });
   } catch (err) {
     await client.query('ROLLBACK');
@@ -116,7 +143,13 @@ router.patch('/:groupId', async (req, res) => {
     const group = updated.rows[0];
     if (!group) return res.status(404).json({ error: 'Group not found' });
 
-    res.json({ group: { id: group.id, name: group.name, iconColor: group.icon_color, iconUrl: group.icon_url, ownerId: group.owner_id } });
+    const formattedGroup = { id: group.id, name: group.name, iconColor: group.icon_color, iconUrl: group.icon_url, ownerId: group.owner_id };
+
+    const io = req.app.get('io');
+    const memberIds = await memberUserIds(groupId);
+    io.to(memberRooms(memberIds)).emit('group:updated', { group: formattedGroup });
+
+    res.json({ group: formattedGroup });
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: 'Something went wrong, please try again' });
@@ -355,6 +388,12 @@ router.post('/:groupId/join-requests/:requestId/accept', async (req, res) => {
     io.to(`user:${request.user_id}`).emit('group:joined', {
       group: { id: group.id, name: group.name, iconColor: group.icon_color, iconUrl: group.icon_url, ownerId: group.owner_id }
     });
+
+    // Everyone else with this group's member sidebar open should see the
+    // new face show up live instead of only on refresh.
+    const joinerInfo = await db.query('SELECT * FROM users WHERE id = $1', [request.user_id]);
+    const memberIds = await memberUserIds(groupId);
+    io.to(memberRooms(memberIds)).emit('group:member-added', { groupId, member: publicUser(joinerInfo.rows[0]) });
 
     res.json({ ok: true });
   } catch (err) {
@@ -646,6 +685,20 @@ router.post('/:groupId/members', async (req, res) => {
       'INSERT INTO group_members (group_id, user_id) VALUES ($1, $2) ON CONFLICT DO NOTHING',
       [groupId, target.id]
     );
+
+    const io = req.app.get('io');
+    const memberIds = await memberUserIds(groupId);
+    io.to(memberRooms(memberIds)).emit('group:member-added', { groupId, member: publicUser(target) });
+
+    // Unlike join-request/invite acceptance, the target didn't take any
+    // action here, so don't jump them into the group — just make sure it
+    // shows up in their rail live instead of only after a refresh.
+    const groupResult = await db.query('SELECT * FROM groups WHERE id = $1', [groupId]);
+    const group = groupResult.rows[0];
+    io.to(`user:${target.id}`).emit('group:added', {
+      group: { id: group.id, name: group.name, iconColor: group.icon_color, iconUrl: group.icon_url, ownerId: group.owner_id }
+    });
+
     res.status(201).json({ ok: true });
   } catch (err) {
     console.error(err);
@@ -664,6 +717,10 @@ router.delete('/:groupId/members/me', async (req, res) => {
 
     await db.query('DELETE FROM group_members WHERE group_id = $1 AND user_id = $2', [groupId, uid]);
 
+    const io = req.app.get('io');
+    const remainingMemberIds = await memberUserIds(groupId);
+    io.to(memberRooms(remainingMemberIds)).emit('group:member-removed', { groupId, userId: uid });
+
     // Announce the departure in the group's default text channel, same place
     // "X has joined the server" is posted on accept.
     const channelResult = await db.query(
@@ -679,7 +736,6 @@ router.delete('/:groupId/members/me', async (req, res) => {
         [uid, channel.id, groupId, `${user.display_name} has left the server`]
       );
 
-      const io = req.app.get('io');
       io.to(`channel:${channel.id}`).emit('channel:message', {
         id: systemMsgInserted.rows[0].id,
         content: `${user.display_name} has left the server`,

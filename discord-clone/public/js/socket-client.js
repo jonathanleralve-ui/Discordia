@@ -34,8 +34,46 @@ const SocketClient = (() => {
       Chat.handleGroupInviteResolved(inviteId, status);
     });
 
+    socket.on('friend:request', () => Friends.refresh());
+    socket.on('friend:accepted', () => Friends.refresh());
+    socket.on('friend:removed', () => Friends.refresh());
+
+    socket.on('profile:updated', ({ user }) => {
+      Friends.handleProfileUpdated(user);
+      Groups.handleProfileUpdated(user);
+      Chat.handleProfileUpdated(user);
+    });
+
+    socket.on('group:updated', ({ group }) => {
+      Groups.handleGroupUpdated(group);
+    });
+
+    socket.on('group:member-added', ({ groupId }) => {
+      Groups.refreshActiveMembers(groupId);
+    });
+
+    socket.on('group:member-removed', ({ groupId }) => {
+      Groups.refreshActiveMembers(groupId);
+    });
+
+    socket.on('channel:created', ({ channel }) => {
+      Groups.handleChannelCreated(channel);
+    });
+
+    socket.on('channel:renamed', ({ channel }) => {
+      Groups.handleChannelRenamed(channel);
+    });
+
+    socket.on('channel:deleted', ({ channelId, groupId }) => {
+      Groups.handleChannelDeleted(channelId, groupId);
+    });
+
     socket.on('group:joined', ({ group }) => {
       Groups.handleJoined(group);
+    });
+
+    socket.on('group:added', ({ group }) => {
+      Groups.handleAdded(group);
     });
 
     socket.on('voice:roster-update', ({ channelId, participants }) => {

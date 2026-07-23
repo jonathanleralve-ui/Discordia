@@ -100,6 +100,11 @@ router.post('/request', async (req, res) => {
       [uid, target.id, 'pending']
     );
 
+    // Let the target's client know right away so it shows up in their
+    // Pending tab without needing a refresh.
+    const io = req.app.get('io');
+    io.to(`user:${target.id}`).emit('friend:request', { fromUserId: uid });
+
     res.status(201).json({ ok: true });
   } catch (err) {
     console.error(err);
@@ -115,6 +120,13 @@ router.post('/:friendshipId/accept', async (req, res) => {
     const fr = result.rows[0];
     if (!fr || fr.addressee_id !== uid) return res.status(404).json({ error: 'Request not found' });
     await db.query("UPDATE friendships SET status = 'accepted' WHERE id = $1", [fr.id]);
+
+    // Both sides need their Friends list to pick up the new friendship
+    // live — the requester in particular has no other event that would
+    // tell their client this happened.
+    const io = req.app.get('io');
+    io.to(`user:${fr.requester_id}`).to(`user:${fr.addressee_id}`).emit('friend:accepted', { friendshipId: fr.id });
+
     res.json({ ok: true });
   } catch (err) {
     console.error(err);
@@ -132,6 +144,13 @@ router.delete('/:friendshipId', async (req, res) => {
       return res.status(404).json({ error: 'Request not found' });
     }
     await db.query('DELETE FROM friendships WHERE id = $1', [fr.id]);
+
+    // Covers three cases from either side's perspective: declining an
+    // incoming request, cancelling an outgoing one, and unfriending
+    // someone — all need the other person's client to drop it live.
+    const io = req.app.get('io');
+    io.to(`user:${fr.requester_id}`).to(`user:${fr.addressee_id}`).emit('friend:removed', { friendshipId: fr.id });
+
     res.json({ ok: true });
   } catch (err) {
     console.error(err);

@@ -20,6 +20,26 @@ const Friends = (() => {
     if (changed) renderTabs();
   }
 
+  // A friend (or someone in the "Else" list) changed their display name,
+  // avatar, or colors elsewhere — patch whichever cached list(s) they show
+  // up in instead of leaving stale info until the next full refresh().
+  function handleProfileUpdated(user) {
+    let changed = false;
+    ['friends', 'incoming', 'outgoing'].forEach((key) => {
+      const idx = AppState.friendsData[key].findIndex((u) => u.id === user.id);
+      if (idx !== -1) {
+        Object.assign(AppState.friendsData[key][idx], user);
+        changed = true;
+      }
+    });
+    const elseIdx = (AppState.elseData || []).findIndex((u) => u.id === user.id);
+    if (elseIdx !== -1) {
+      Object.assign(AppState.elseData[elseIdx], user);
+      changed = true;
+    }
+    if (changed) renderTabs();
+  }
+
   function renderTabs() {
     const { friends, incoming, outgoing } = AppState.friendsData;
 
@@ -344,5 +364,5 @@ const Friends = (() => {
     });
   }
 
-  return { refresh, renderTabs, handlePresenceUpdate, initUI, markTabUnread, clearSenderTabUnread };
+  return { refresh, renderTabs, handlePresenceUpdate, handleProfileUpdated, initUI, markTabUnread, clearSenderTabUnread };
 })();

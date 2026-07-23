@@ -749,6 +749,81 @@ const Groups = (() => {
     });
   }
 
+  // Someone else added us to a group directly (checked us off when creating
+  // it, or used the direct add-member endpoint) rather than us accepting an
+  // invite/join request — just make the new server show up in the rail
+  // live, without yanking the person away from whatever they're doing.
+  function handleAdded() {
+    return refresh();
+  }
+
+  // Another member renamed the group or changed its icon — update the rail
+  // and, if we're currently looking at this group, the sidebar header too.
+  function handleGroupUpdated(group) {
+    const idx = AppState.groupsData.findIndex((g) => g.id === group.id);
+    if (idx !== -1) {
+      AppState.groupsData[idx] = group;
+      renderRail();
+    }
+    if (AppState.activeGroup && AppState.activeGroup.id === group.id) {
+      AppState.activeGroup = group;
+      $('#sidebar-header').textContent = group.name;
+    }
+  }
+
+  // A friend/member changed their display name, avatar, or colors — refresh
+  // this group's member list live if we're looking at one they're in.
+  function handleProfileUpdated(user) {
+    if (AppState.activeGroup && AppState.activeMemberIds.includes(user.id)) {
+      refreshActiveMembers(AppState.activeGroup.id);
+    }
+  }
+
+  // Shared by the group:member-added / group:member-removed socket
+  // handlers — simplest to just refetch the member list rather than
+  // patch it in place, and it's a small, infrequent request.
+  function refreshActiveMembers(groupId) {
+    if (!AppState.activeGroup || AppState.activeGroup.id !== groupId) return;
+    return Api.groups.members(groupId).then((data) => {
+      AppState.activeMemberIds = data.members.map((m) => m.id);
+      renderMembers(data.members);
+    });
+  }
+
+  // Another member created a channel — drop it into the sidebar live if
+  // we're looking at this group (idempotent in case our own client already
+  // added it via the REST response to our own create-channel call).
+  function handleChannelCreated(channel) {
+    if (!AppState.activeGroup || channel.groupId !== AppState.activeGroup.id) return;
+    if (AppState.activeGroupChannels.some((c) => c.id === channel.id)) return;
+    AppState.activeGroupChannels.push(channel);
+    renderChannels();
+  }
+
+  function handleChannelRenamed(channel) {
+    const idx = AppState.activeGroupChannels.findIndex((c) => c.id === channel.id);
+    if (idx !== -1) {
+      AppState.activeGroupChannels[idx] = channel;
+      renderChannels();
+    }
+    if (AppState.activeChat && AppState.activeChat.type === 'channel' && AppState.activeChat.id === channel.id) {
+      AppState.activeChat.name = channel.name;
+      $('#chat-title').textContent = `# ${channel.name}`;
+    }
+  }
+
+  function handleChannelDeleted(channelId, groupId) {
+    if (AppState.activeGroup && AppState.activeGroup.id === groupId) {
+      AppState.activeGroupChannels = AppState.activeGroupChannels.filter((c) => c.id !== channelId);
+      renderChannels();
+    }
+    if (AppState.activeChat && AppState.activeChat.type === 'channel' && AppState.activeChat.id === channelId) {
+      AppState.activeChat = null;
+      $('#empty-state').classList.remove('hidden');
+      $('#chat-panel').classList.add('hidden');
+    }
+  }
+
   function initUI() {
     // A channel's "..." menu opens on click; clicking anywhere else in the
     // document (another channel, the chat area, etc.) should close it,
@@ -864,6 +939,13 @@ const Groups = (() => {
     initUI,
     refreshChannelHighlight,
     handleJoined,
+    handleAdded,
+    handleGroupUpdated,
+    handleProfileUpdated,
+    refreshActiveMembers,
+    handleChannelCreated,
+    handleChannelRenamed,
+    handleChannelDeleted,
     handleVoiceRosterUpdate,
     markGroupUnread,
     clearGroupUnread,

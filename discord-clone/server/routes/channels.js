@@ -13,6 +13,17 @@ async function isGroupMember(groupId, userId) {
   return result.rows.length > 0;
 }
 
+// Same idea as the equivalent helper in routes/groups.js — every connected
+// socket always sits in its own `user:${id}` room, so this is how we reach
+// "everyone currently in this group" without a dedicated group-wide room.
+async function memberUserIds(groupId) {
+  const result = await db.query('SELECT user_id FROM group_members WHERE group_id = $1', [groupId]);
+  return result.rows.map((r) => r.user_id);
+}
+function memberRooms(userIds) {
+  return userIds.map((id) => `user:${id}`);
+}
+
 function formatChannel(c) {
   return {
     id: c.id,
@@ -74,8 +85,18 @@ router.post('/groups/:groupId/channels', async (req, res) => {
       'INSERT INTO channels (group_id, name, type, category, position) VALUES ($1, $2, $3, $4, $5) RETURNING *',
       [groupId, cleanName, cleanType, category, nextPos]
     );
+    const channel = formatChannel(inserted.rows[0]);
 
-    res.status(201).json({ channel: formatChannel(inserted.rows[0]) });
+    const io = req.app.get('io');
+    const memberIds = await memberUserIds(groupId);
+    const rooms = memberRooms(memberIds);
+    io.to(rooms).emit('channel:created', { channel });
+    // Members who are already connected won't have joined this brand new
+    // channel's room on their own — do it for them so a message sent into
+    // it right away still reaches them without an explicit channel:join.
+    io.in(rooms).socketsJoin(`channel:${channel.id}`);
+
+    res.status(201).json({ channel });
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: 'Something went wrong, please try again' });
@@ -101,7 +122,13 @@ router.patch('/channels/:channelId', async (req, res) => {
     if (!cleanName) return res.status(400).json({ error: 'Channel name is required' });
 
     const updated = await db.query('UPDATE channels SET name = $2 WHERE id = $1 RETURNING *', [channelId, cleanName]);
-    res.json({ channel: formatChannel(updated.rows[0]) });
+    const updatedChannel = formatChannel(updated.rows[0]);
+
+    const io = req.app.get('io');
+    const memberIds = await memberUserIds(channel.group_id);
+    io.to(memberRooms(memberIds)).emit('channel:renamed', { channel: updatedChannel });
+
+    res.json({ channel: updatedChannel });
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: 'Something went wrong, please try again' });
@@ -123,6 +150,11 @@ router.delete('/channels/:channelId', async (req, res) => {
     }
 
     await db.query('DELETE FROM channels WHERE id = $1', [channelId]);
+
+    const io = req.app.get('io');
+    const memberIds = await memberUserIds(channel.group_id);
+    io.to(memberRooms(memberIds)).emit('channel:deleted', { channelId, groupId: channel.group_id });
+
     res.json({ ok: true });
   } catch (err) {
     console.error(err);

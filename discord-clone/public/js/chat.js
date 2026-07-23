@@ -413,6 +413,17 @@ const Chat = (() => {
     applyGroupInviteState(row, { status });
   }
 
+  // If we're currently looking at a DM with this person, keep the chat
+  // header's name in sync with their new display name live.
+  function handleProfileUpdated(user) {
+    const chat = AppState.activeChat;
+    if (chat && chat.type === 'dm' && chat.id === user.id) {
+      chat.name = user.displayName;
+      chat.color = user.avatarColor;
+      $('#chat-title').textContent = `@${chat.name}`;
+    }
+  }
+
   function isImage(type) { return /^image\//.test(type || ''); }
   function isVideo(type) { return /^video\//.test(type || ''); }
 
@@ -755,6 +766,7 @@ const Chat = (() => {
     handleTypingEvent,
     handleJoinRequestResolved,
     handleGroupInviteResolved,
+    handleProfileUpdated,
     handleMessageDeleted,
     initUI
   };

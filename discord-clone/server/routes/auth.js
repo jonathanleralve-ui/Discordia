@@ -144,7 +144,16 @@ router.patch('/me', auth, async (req, res) => {
       values
     );
 
-    res.json({ user: publicUser(result.rows[0]) });
+    const user = publicUser(result.rows[0]);
+
+    // Broadcast like presence updates do — cheaper than tracking exactly
+    // which friends/group members currently have this person visible
+    // somewhere (friends list, member list, DM header, etc.), and every
+    // client already ignores updates for users it isn't displaying.
+    const io = req.app.get('io');
+    io.emit('profile:updated', { user });
+
+    res.json({ user });
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: 'Something went wrong, please try again' });
