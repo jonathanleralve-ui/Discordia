@@ -25,6 +25,7 @@ function publicUser(u) {
     avatarModelZoom: u.avatar_model_zoom,
     avatarModelOffsetX: u.avatar_model_offset_x,
     avatarModelOffsetY: u.avatar_model_offset_y,
+    avatarModelRotationY: u.avatar_model_rotation_y,
     status: u.status
   };
 }
@@ -107,7 +108,7 @@ router.patch('/me', auth, async (req, res) => {
   try {
     const {
       displayName, avatarColor, avatarUrl, nameColor, avatarModelUrl, avatarMode,
-      avatarModelZoom, avatarModelOffsetX, avatarModelOffsetY
+      avatarModelZoom, avatarModelOffsetX, avatarModelOffsetY, avatarModelRotationY
     } = req.body || {};
     const updates = [];
     const values = [];
@@ -178,6 +179,17 @@ router.patch('/me', auth, async (req, res) => {
       if (!Number.isFinite(y)) return res.status(400).json({ error: 'Invalid offset value' });
       updates.push(`avatar_model_offset_y = $${idx++}`);
       values.push(Math.min(2, Math.max(-2, y)));
+    }
+
+    if (avatarModelRotationY !== undefined) {
+      const r = Number(avatarModelRotationY);
+      if (!Number.isFinite(r)) return res.status(400).json({ error: 'Invalid rotation value' });
+      // Wrap into (-PI, PI] rather than clamp - rotation is circular, so a
+      // value just past PI should wrap around to just past -PI, not get
+      // stuck at the boundary.
+      const wrapped = Math.atan2(Math.sin(r), Math.cos(r));
+      updates.push(`avatar_model_rotation_y = $${idx++}`);
+      values.push(wrapped);
     }
 
     if (updates.length === 0) {

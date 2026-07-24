@@ -180,18 +180,24 @@
           <div class="profile-model-preview profile-model-preview--large" id="edit-profile-model-preview">
             <span id="edit-profile-model-preview-placeholder">No model</span>
           </div>
-          <div class="profile-model-framing hidden" id="edit-profile-model-framing">
-            <p class="model-framing-hint">Drag to reposition &bull; Scroll or pinch to zoom</p>
-            <div class="model-framing-zoom-row">
-              <span>🔍</span>
-              <input type="range" id="edit-profile-model-zoom-slider" min="0.3" max="3" step="0.05" value="1" />
-              <button class="btn-secondary btn-small" id="edit-profile-model-zoom-reset" type="button">Reset</button>
+          <div class="profile-model-controls">
+            <div class="profile-model-preview-actions">
+              <input type="file" id="edit-profile-model-file" accept=".zip" class="hidden" />
+              <button class="btn-secondary" id="edit-profile-model-upload-btn" type="button">Upload Model (.zip)</button>
+              <button class="btn-secondary hidden" id="edit-profile-model-remove-btn" type="button">Remove</button>
             </div>
-          </div>
-          <div class="profile-model-preview-actions">
-            <input type="file" id="edit-profile-model-file" accept=".zip" class="hidden" />
-            <button class="btn-secondary" id="edit-profile-model-upload-btn" type="button">Upload Model (.zip)</button>
-            <button class="btn-secondary hidden" id="edit-profile-model-remove-btn" type="button">Remove</button>
+            <div class="profile-model-framing hidden" id="edit-profile-model-framing">
+              <p class="model-framing-hint">Drag to rotate &bull; right-drag to reposition &bull; scroll/pinch to zoom</p>
+              <label class="model-framing-label" for="edit-profile-model-zoom-slider">🔍 Zoom</label>
+              <div class="model-framing-row">
+                <input type="range" id="edit-profile-model-zoom-slider" min="0.3" max="3" step="0.05" value="1" />
+              </div>
+              <label class="model-framing-label" for="edit-profile-model-rotation-slider">🔄 Rotate</label>
+              <div class="model-framing-row">
+                <input type="range" id="edit-profile-model-rotation-slider" min="-3.14159" max="3.14159" step="0.01" value="0" />
+              </div>
+              <button class="btn-secondary btn-small" id="edit-profile-model-zoom-reset" type="button">Reset framing</button>
+            </div>
           </div>
         </div>
         <p class="profile-panel-sub" id="edit-profile-model-status">No 3D model uploaded yet</p>

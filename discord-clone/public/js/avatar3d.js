@@ -18,27 +18,29 @@ function createAvatar3D(container, options = {}) {
         modelUrl,
         onReady = () => {},
         onError = () => {},
-        // Interactive drag-to-pan / scroll-to-zoom framing (rotation is
-        // intentionally left off - this is a "crop the shot" control, not a
-        // full 3D orbit view). Off by default: the voice-chat tiles are
-        // tiny 96x96 rings and shouldn't eat mouse input from the rest of
-        // the UI. Turn on for the Edit Profile preview so the user can
-        // frame their model.
+        // Interactive drag-to-rotate, right-drag/two-finger-to-pan,
+        // scroll/pinch-to-zoom framing. Off by default: the voice-chat
+        // tiles are tiny 96x96 rings and shouldn't eat mouse input from the
+        // rest of the UI. Turn on for the Edit Profile preview so the user
+        // can frame their model.
         controls: controlsEnabled = false,
         // Decorative idle sway - only makes sense when nobody's manually
         // framing the shot. Defaults to whatever controls isn't doing.
         autoRotate: autoRotateEnabled = !controlsEnabled,
         // Saved framing: zoom is a camera-distance multiplier (1 = default,
         // <1 = closer/bigger, >1 = further/smaller); offsetX/offsetY pan the
-        // framing target left/right/up/down in world units. These are what
+        // framing target left/right/up/down in world units; rotationY spins
+        // the model horizontally (radians) so a different side faces the
+        // camera. Vertical tilt is intentionally not exposed. These are what
         // gets persisted to the user's profile so every place the model
         // renders (voice tiles, other people's screens) uses the same crop
         // the user chose in Edit Profile.
         zoom: initialZoom = 1,
         offsetX: initialOffsetX = 0,
         offsetY: initialOffsetY = 0,
+        rotationY: initialRotationY = 0,
         // Fired whenever the user finishes a drag/scroll gesture (controls
-        // must be enabled), with the resulting { zoom, offsetX, offsetY } -
+        // must be enabled), with the resulting { zoom, offsetX, offsetY, rotationY } -
         // so the caller can save it.
         onFramingChange = () => {},
     } = options;
@@ -63,7 +65,8 @@ function createAvatar3D(container, options = {}) {
     let zoom = Math.min(ZOOM_MAX, Math.max(ZOOM_MIN, initialZoom));
     let offsetX = Math.min(OFFSET_MAX, Math.max(-OFFSET_MAX, initialOffsetX));
     let offsetY = Math.min(OFFSET_MAX, Math.max(-OFFSET_MAX, initialOffsetY));
-    let baseTarget, baseDistance, baseDirection;
+    let rotationY = initialRotationY;
+    let baseTarget, baseDistance, baseDirection, baseAzimuth, basePolar;
 
     let scene, camera, renderer, controls;
     let model = null;
@@ -85,7 +88,12 @@ function createAvatar3D(container, options = {}) {
             baseTarget.y + offsetY,
             baseTarget.z
         );
-        camera.position.copy(target).addScaledVector(baseDirection, baseDistance * zoom);
+        const offset = new THREE.Vector3().setFromSphericalCoords(
+            baseDistance * zoom,
+            basePolar,
+            baseAzimuth + rotationY
+        );
+        camera.position.copy(target).add(offset);
         camera.lookAt(target);
         if (controls) controls.target.copy(target);
     }
@@ -98,15 +106,18 @@ function createAvatar3D(container, options = {}) {
 
         camera = new THREE.PerspectiveCamera(45, width / height, 0.1, 50);
 
-        // Base (unzoomed/uncentered) camera rig, from CONFIG - this used to
-        // be hardcoded here and CONFIG.cameraPosition/cameraTarget were
-        // silently ignored, which is why passing a closer cameraPosition
-        // never actually made the model bigger.
+        // Base (unzoomed/uncentered/unrotated) camera rig, from CONFIG -
+        // this used to be hardcoded here and CONFIG.cameraPosition/
+        // cameraTarget were silently ignored, which is why passing a closer
+        // cameraPosition never actually made the model bigger.
         const basePos = new THREE.Vector3(...CONFIG.cameraPosition);
         baseTarget = new THREE.Vector3(...CONFIG.cameraTarget);
         baseDirection = basePos.clone().sub(baseTarget);
         baseDistance = baseDirection.length() || 1;
         baseDirection.normalize();
+        const baseSpherical = new THREE.Spherical().setFromVector3(baseDirection);
+        baseAzimuth = baseSpherical.theta;
+        basePolar = baseSpherical.phi;
 
         renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
         renderer.setSize(width, height);
@@ -119,18 +130,22 @@ function createAvatar3D(container, options = {}) {
         controls.minDistance = baseDistance * ZOOM_MIN;
         controls.maxDistance = baseDistance * ZOOM_MAX;
 
-        // This is a "frame the shot" control, not a free-look orbit camera:
-        // rotation is off, only pan (drag) and zoom (scroll/pinch) are
-        // allowed, and only when explicitly enabled by the caller (the
-        // Edit Profile preview turns this on; voice-chat tiles leave it
-        // off).
+        // "Frame the shot" controls, only when explicitly enabled by the
+        // caller (the Edit Profile preview turns this on; voice-chat tiles
+        // leave it off): left-drag/one-finger to rotate (spin left/right to
+        // pick which side faces the camera), right-drag/two-finger to pan
+        // (reposition), scroll/pinch to zoom. Vertical tilt is locked (min
+        // and max polar angle pinned to the base angle) so rotating can't
+        // flip the camera upside-down or under the model.
         controls.enabled = controlsEnabled;
-        controls.enableRotate = false;
+        controls.enableRotate = controlsEnabled;
         controls.enableZoom = controlsEnabled;
         controls.enablePan = controlsEnabled;
+        controls.minPolarAngle = basePolar;
+        controls.maxPolarAngle = basePolar;
         controls.screenSpacePanning = true;
-        controls.mouseButtons = { LEFT: THREE.MOUSE.PAN, MIDDLE: THREE.MOUSE.DOLLY, RIGHT: THREE.MOUSE.PAN };
-        controls.touches = { ONE: THREE.TOUCH.PAN, TWO: THREE.TOUCH.DOLLY_PAN };
+        controls.mouseButtons = { LEFT: THREE.MOUSE.ROTATE, MIDDLE: THREE.MOUSE.DOLLY, RIGHT: THREE.MOUSE.PAN };
+        controls.touches = { ONE: THREE.TOUCH.ROTATE, TWO: THREE.TOUCH.DOLLY_PAN };
 
         applyFraming();
         controls.update();
@@ -140,7 +155,8 @@ function createAvatar3D(container, options = {}) {
                 zoom = Math.min(ZOOM_MAX, Math.max(ZOOM_MIN, camera.position.distanceTo(controls.target) / baseDistance));
                 offsetX = Math.min(OFFSET_MAX, Math.max(-OFFSET_MAX, controls.target.x - baseTarget.x));
                 offsetY = Math.min(OFFSET_MAX, Math.max(-OFFSET_MAX, controls.target.y - baseTarget.y));
-                onFramingChange({ zoom, offsetX, offsetY });
+                rotationY = controls.getAzimuthalAngle() - baseAzimuth;
+                onFramingChange({ zoom, offsetX, offsetY, rotationY });
             };
             // 'end' fires once when a drag/scroll gesture finishes - that's
             // the point to report the settled value back to the caller,
@@ -394,14 +410,15 @@ function createAvatar3D(container, options = {}) {
             pendingVoiceLevel = level || 0;
         },
         getFraming() {
-            return { zoom, offsetX, offsetY };
+            return { zoom, offsetX, offsetY, rotationY };
         },
-        // Used by the zoom slider / reset button - anything driving framing
-        // outside of direct drag/scroll on the canvas itself.
-        setFraming({ zoom: z, offsetX: ox, offsetY: oy } = {}) {
+        // Used by the zoom/rotate sliders / reset button - anything driving
+        // framing outside of direct drag/scroll on the canvas itself.
+        setFraming({ zoom: z, offsetX: ox, offsetY: oy, rotationY: ry } = {}) {
             if (z !== undefined) zoom = Math.min(ZOOM_MAX, Math.max(ZOOM_MIN, z));
             if (ox !== undefined) offsetX = Math.min(OFFSET_MAX, Math.max(-OFFSET_MAX, ox));
             if (oy !== undefined) offsetY = Math.min(OFFSET_MAX, Math.max(-OFFSET_MAX, oy));
+            if (ry !== undefined) rotationY = ry;
             if (camera && baseTarget) {
                 applyFraming();
                 if (controls) controls.update();

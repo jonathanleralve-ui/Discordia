@@ -415,7 +415,7 @@ const VoiceChat = (() => {
     delete avatar3DInstances[key];
   }
 
-  function mountAvatar3D(ring, key, modelUrl) {
+  function mountAvatar3D(ring, key, modelUrl, zoom, offsetX, offsetY, rotationY) {
     let inst = avatar3DInstances[key];
 
     if (inst && inst.modelUrl !== modelUrl) {
@@ -435,9 +435,16 @@ const VoiceChat = (() => {
       }
       const api = window.Avatar3D.createAvatar(container, {
         modelUrl,
+        zoom, offsetX, offsetY, rotationY,
         onError: () => { container.classList.add('avatar-3d-error'); }
       });
       inst = avatar3DInstances[key] = { api, modelUrl, container };
+    } else {
+      // Framing can change (saved from Edit Profile) without the model URL
+      // changing, e.g. after VoiceChat.refreshSelfTile() - keep it in sync
+      // on an already-mounted instance instead of only applying it at
+      // creation time.
+      inst.api.setFraming({ zoom, offsetX, offsetY, rotationY });
     }
 
     ring.appendChild(inst.container);
@@ -451,10 +458,10 @@ const VoiceChat = (() => {
     list.innerHTML = '';
 
     if (connectedChannelId) {
-      list.appendChild(participantTile('self', me.displayName, me.avatarColor, muted, sharingScreen, true, me.avatarUrl, me.nameColor, me.avatarMode, me.avatarModelUrl, me.avatarModelZoom, me.avatarModelOffsetX, me.avatarModelOffsetY));
+      list.appendChild(participantTile('self', me.displayName, me.avatarColor, muted, sharingScreen, true, me.avatarUrl, me.nameColor, me.avatarMode, me.avatarModelUrl, me.avatarModelZoom, me.avatarModelOffsetX, me.avatarModelOffsetY, me.avatarModelRotationY));
     }
     Object.entries(peers).forEach(([socketId, { info }]) => {
-      list.appendChild(participantTile(socketId, info.displayName, info.avatarColor, !!info.muted, info.sharing, false, info.avatarUrl, info.nameColor, info.avatarMode, info.avatarModelUrl, info.avatarModelZoom, info.avatarModelOffsetX, info.avatarModelOffsetY));
+      list.appendChild(participantTile(socketId, info.displayName, info.avatarColor, !!info.muted, info.sharing, false, info.avatarUrl, info.nameColor, info.avatarMode, info.avatarModelUrl, info.avatarModelZoom, info.avatarModelOffsetX, info.avatarModelOffsetY, info.avatarModelRotationY));
     });
 
     if (list.children.length === 0) {
@@ -462,7 +469,7 @@ const VoiceChat = (() => {
     }
   }
 
-  function participantTile(key, name, color, isMuted, isSharing, isSelf, avatarUrl, nameColor, avatarMode, avatarModelUrl, avatarModelZoom, avatarModelOffsetX, avatarModelOffsetY) {
+  function participantTile(key, name, color, isMuted, isSharing, isSelf, avatarUrl, nameColor, avatarMode, avatarModelUrl, avatarModelZoom, avatarModelOffsetX, avatarModelOffsetY, avatarModelRotationY) {
     const tile = document.createElement('div');
     tile.className = 'voice-tile';
     tile.dataset.speaker = key;
@@ -472,7 +479,7 @@ const VoiceChat = (() => {
     ring.style.setProperty('--ring-color', color || '#5865F2');
 
     if (avatarMode === '3d' && avatarModelUrl) {
-      mountAvatar3D(ring, key, avatarModelUrl, avatarModelZoom, avatarModelOffsetX, avatarModelOffsetY);
+      mountAvatar3D(ring, key, avatarModelUrl, avatarModelZoom, avatarModelOffsetX, avatarModelOffsetY, avatarModelRotationY);
     } else {
       disposeAvatar3D(key);
       const avatar = avatarEl({ displayName: name, avatarColor: color, avatarUrl: avatarUrl });

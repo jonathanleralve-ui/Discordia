@@ -56,6 +56,10 @@ ALTER TABLE users ADD COLUMN IF NOT EXISTS avatar_mode TEXT NOT NULL DEFAULT 'fl
 ALTER TABLE users ADD COLUMN IF NOT EXISTS avatar_model_zoom DOUBLE PRECISION NOT NULL DEFAULT 1;
 ALTER TABLE users ADD COLUMN IF NOT EXISTS avatar_model_offset_x DOUBLE PRECISION NOT NULL DEFAULT 0;
 ALTER TABLE users ADD COLUMN IF NOT EXISTS avatar_model_offset_y DOUBLE PRECISION NOT NULL DEFAULT 0;
+-- Horizontal spin around the model, in radians, chosen the same way (drag or
+-- a slider) alongside zoom/pan. Vertical tilt is deliberately not exposed -
+-- just left/right so the user can pick which side faces the camera.
+ALTER TABLE users ADD COLUMN IF NOT EXISTS avatar_model_rotation_y DOUBLE PRECISION NOT NULL DEFAULT 0;
 
 CREATE TABLE IF NOT EXISTS friendships (
   id SERIAL PRIMARY KEY,

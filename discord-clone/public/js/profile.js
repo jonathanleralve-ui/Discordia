@@ -26,6 +26,7 @@ const Profile = (() => {
   let selectedModelZoom = 1;
   let selectedModelOffsetX = 0;
   let selectedModelOffsetY = 0;
+  let selectedModelRotationY = 0;
 
   const NAME_COLORS = ['#5865F2', '#EB459E', '#57F287', '#FEE75C', '#ED4245', '#3BA55D', '#FAA61A'];
 
@@ -64,6 +65,7 @@ const Profile = (() => {
     $('#edit-profile-model-remove-btn').classList.toggle('hidden', !hasModel);
     $('#edit-profile-model-framing').classList.toggle('hidden', !hasModel);
     $('#edit-profile-model-zoom-slider').value = String(selectedModelZoom);
+    $('#edit-profile-model-rotation-slider').value = String(selectedModelRotationY);
 
     const toggle = $('#edit-profile-3d-toggle');
     toggle.checked = avatarMode === '3d';
@@ -103,16 +105,19 @@ const Profile = (() => {
       zoom: selectedModelZoom,
       offsetX: selectedModelOffsetX,
       offsetY: selectedModelOffsetY,
+      rotationY: selectedModelRotationY,
       onReady: () => box.classList.remove('model-preview-loading'),
       onError: () => {
         box.classList.remove('model-preview-loading');
         box.classList.add('model-preview-error');
       },
-      onFramingChange: ({ zoom, offsetX, offsetY }) => {
+      onFramingChange: ({ zoom, offsetX, offsetY, rotationY }) => {
         selectedModelZoom = zoom;
         selectedModelOffsetX = offsetX;
         selectedModelOffsetY = offsetY;
+        selectedModelRotationY = rotationY;
         $('#edit-profile-model-zoom-slider').value = String(zoom);
+        $('#edit-profile-model-rotation-slider').value = String(rotationY);
       }
     });
   }
@@ -122,12 +127,19 @@ const Profile = (() => {
     if (modelPreviewInstance) modelPreviewInstance.setFraming({ zoom: selectedModelZoom });
   }
 
+  function applyRotationFromSlider(value) {
+    selectedModelRotationY = Number(value);
+    if (modelPreviewInstance) modelPreviewInstance.setFraming({ rotationY: selectedModelRotationY });
+  }
+
   function resetFraming() {
     selectedModelZoom = 1;
     selectedModelOffsetX = 0;
     selectedModelOffsetY = 0;
+    selectedModelRotationY = 0;
     $('#edit-profile-model-zoom-slider').value = '1';
-    if (modelPreviewInstance) modelPreviewInstance.setFraming({ zoom: 1, offsetX: 0, offsetY: 0 });
+    $('#edit-profile-model-rotation-slider').value = '0';
+    if (modelPreviewInstance) modelPreviewInstance.setFraming({ zoom: 1, offsetX: 0, offsetY: 0, rotationY: 0 });
   }
 
   function renderPhotoPreview() {
@@ -157,6 +169,7 @@ const Profile = (() => {
     selectedModelZoom = AppState.me.avatarModelZoom ?? 1;
     selectedModelOffsetX = AppState.me.avatarModelOffsetX ?? 0;
     selectedModelOffsetY = AppState.me.avatarModelOffsetY ?? 0;
+    selectedModelRotationY = AppState.me.avatarModelRotationY ?? 0;
     renderPhotoPreview();
     renderNameColorSwatches();
     renderModelSection();
@@ -196,7 +209,7 @@ const Profile = (() => {
 
     const finalizeSave = (avatarUrl) => {
       // Do not send avatarColor (removed from UI) so pass undefined
-      Api.auth.updateMe(displayName, undefined, avatarUrl, selectedNameColor, selectedModelUrl, avatarMode, selectedModelZoom, selectedModelOffsetX, selectedModelOffsetY)
+      Api.auth.updateMe(displayName, undefined, avatarUrl, selectedNameColor, selectedModelUrl, avatarMode, selectedModelZoom, selectedModelOffsetX, selectedModelOffsetY, selectedModelRotationY)
         .then((data) => {
           Object.assign(AppState.me, data.user);
           $('#me-name').textContent = AppState.me.displayName;
@@ -266,10 +279,12 @@ const Profile = (() => {
       selectedModelZoom = 1;
       selectedModelOffsetX = 0;
       selectedModelOffsetY = 0;
+      selectedModelRotationY = 0;
       renderModelSection();
       disposeModelPreview();
     });
     $('#edit-profile-model-zoom-slider').addEventListener('input', (e) => applyZoomFromSlider(e.target.value));
+    $('#edit-profile-model-rotation-slider').addEventListener('input', (e) => applyRotationFromSlider(e.target.value));
     $('#edit-profile-model-zoom-reset').addEventListener('click', resetFraming);
     $('#edit-profile-model-file').addEventListener('change', (e) => {
       const file = e.target.files && e.target.files[0];
@@ -287,6 +302,7 @@ const Profile = (() => {
           selectedModelZoom = 1;
           selectedModelOffsetX = 0;
           selectedModelOffsetY = 0;
+          selectedModelRotationY = 0;
           renderModelSection();
           mountModelPreview(selectedModelUrl);
         })

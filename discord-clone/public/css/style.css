@@ -909,9 +909,9 @@ input { font-family: inherit; }
    this box started as - the character was hard to see (and hard to frame)
    at 96px. Interactive (drag/scroll) so cursor affordance matters here. */
 .profile-model-preview--large {
-  width: 100%;
-  max-width: 320px;
-  height: 320px;
+  width: 220px;
+  height: 220px;
+  min-width: 220px;
   border-radius: 16px;
   cursor: grab;
   touch-action: none;
@@ -920,43 +920,70 @@ input { font-family: inherit; }
 
 .profile-model-section {
   display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 10px;
+  flex-direction: row;
+  align-items: flex-start;
+  gap: 16px;
   margin: 8px 0 12px;
+}
+
+.profile-model-controls {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  flex: 1;
+  min-width: 0;
+  padding-top: 2px;
 }
 
 .profile-model-framing {
   width: 100%;
-  max-width: 320px;
   display: flex;
   flex-direction: column;
-  align-items: center;
-  gap: 6px;
+  gap: 4px;
 }
 
 .model-framing-hint {
   font-size: 12px;
   color: var(--text-muted, #b5bac1);
+  margin: 0 0 6px;
+}
+
+.model-framing-label {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-muted, #b5bac1);
+  text-transform: none;
   margin: 0;
 }
 
-.model-framing-zoom-row {
+.model-framing-row {
   display: flex;
   align-items: center;
   gap: 10px;
   width: 100%;
 }
 
-.model-framing-zoom-row input[type="range"] {
+.model-framing-row input[type="range"] {
   flex: 1;
   accent-color: var(--blurple, #5865F2);
 }
 
-.profile-model-section .profile-model-preview-actions {
+.profile-model-controls .profile-model-preview-actions {
   flex-direction: row;
   flex-wrap: wrap;
-  justify-content: center;
+}
+
+.profile-model-controls #edit-profile-model-zoom-reset {
+  align-self: flex-start;
+  margin-top: 4px;
+}
+
+@media (max-width: 480px) {
+  .profile-model-section {
+    flex-direction: column;
+    align-items: center;
+  }
+  .profile-model-preview--large { width: 100%; max-width: 260px; height: 260px; }
 }
 
 .profile-model-preview.model-preview-loading::after {
