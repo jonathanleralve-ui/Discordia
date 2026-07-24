@@ -478,6 +478,8 @@ const VoiceChat = (() => {
     if (list.children.length === 0) {
       list.innerHTML = '<div class="empty-list-hint">No one is in voice chat.</div>';
     }
+
+    enforcePanelMinHeight();
   }
 
   function participantTile(key, name, color, isMuted, isSharing, isSelf, avatarUrl, nameColor, avatarMode, avatarModelUrl, avatarModelZoom, avatarModelOffsetX, avatarModelOffsetY, avatarModelRotationY) {
@@ -505,6 +507,7 @@ const VoiceChat = (() => {
       ring.style.height = `${next}px`;
       const inst = avatar3DInstances[key];
       if (inst) inst.api.resize();
+      enforcePanelMinHeight();
     }, { passive: false });
 
     if (avatarMode === '3d' && avatarModelUrl) {
@@ -734,6 +737,25 @@ const VoiceChat = (() => {
     }
 
     return Math.max(Math.ceil(min), RESIZE_ABSOLUTE_MIN);
+  }
+
+  // Called after every participants render (and after a wheel-resize):
+  // if the panel is currently shorter than what's needed to show a full
+  // avatar tile, grow it to fit. This only ever grows the panel, never
+  // shrinks it - dragging the handle already refuses to go below
+  // computeMinHeight (see initResizeHandle), so if we're under that min
+  // here it can only be because nobody has touched the handle yet (or an
+  // avatar was just made bigger via the wheel), never a deliberate
+  // smaller size the user dragged to.
+  function enforcePanelMinHeight(panel) {
+    panel = panel || $('#voice-panel');
+    if (!panel) return;
+    const min = computeMinHeight(panel);
+    const current = panel.getBoundingClientRect().height;
+    if (current < min) {
+      panel.style.setProperty('--voice-panel-height', `${min}px`);
+      updateStreamTileHeight(panel);
+    }
   }
 
   // While streaming, grows/shrinks the share tile so it fills whatever extra
