@@ -27,7 +27,7 @@ const VoiceChat = (() => {
   // itself has to live here (keyed like avatar3DInstances) rather than on
   // the element, or it'd reset back to default on the next re-render.
   const tileSizes = {}; // key -> diameter in px
-  const TILE_SIZE_DEFAULT = 160;
+  const TILE_SIZE_DEFAULT = 250;
   const TILE_SIZE_MIN = 64;
   const TILE_SIZE_MAX = 360;
   const TILE_SIZE_STEP = 12;
