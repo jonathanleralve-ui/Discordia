@@ -53,17 +53,35 @@ function createAvatar3D(container, options = {}) {
         mouthIntensity: initialMouthIntensity = 0.5,
         voiceStart: initialVoiceStart = 5,
         voiceMax: initialVoiceMax = 59,
+        // Blink tuning, saved alongside the above. blinkIntensity is how
+        // closed the eye shape key gets at the peak of a blink (0-1, same
+        // "cap the value" idea as mouthIntensity). blinkIntervalMin/Max are
+        // the random range (seconds) between blinks - a new random wait in
+        // that range is picked after each blink finishes. blinkEnabled is
+        // the initial on/off state (also toggleable live via toggleBlink()).
+        blinkIntensity: initialBlinkIntensity = 1,
+        blinkIntervalMin: initialBlinkIntervalMin = 2,
+        blinkIntervalMax: initialBlinkIntervalMax = 4,
+        blinkEnabled: initialBlinkEnabled = true,
     } = options;
 
     // Same clamp ranges as the server (server/routes/auth.js).
     const MOUTH_INTENSITY_MIN = 0, MOUTH_INTENSITY_MAX = 1;
     const VOICE_THRESHOLD_MIN = 0, VOICE_THRESHOLD_MAX = 100;
+    const BLINK_INTENSITY_MIN = 0, BLINK_INTENSITY_MAX = 1;
+    const BLINK_INTERVAL_MIN = 0.2, BLINK_INTERVAL_MAX = 20;
 
     function clampMouthIntensity(v) {
         return Math.min(MOUTH_INTENSITY_MAX, Math.max(MOUTH_INTENSITY_MIN, v));
     }
     function clampVoiceThreshold(v) {
         return Math.min(VOICE_THRESHOLD_MAX, Math.max(VOICE_THRESHOLD_MIN, v));
+    }
+    function clampBlinkIntensity(v) {
+        return Math.min(BLINK_INTENSITY_MAX, Math.max(BLINK_INTENSITY_MIN, v));
+    }
+    function clampBlinkInterval(v) {
+        return Math.min(BLINK_INTERVAL_MAX, Math.max(BLINK_INTERVAL_MIN, v));
     }
 
     // Update CONFIG in createAvatar3D
@@ -72,8 +90,9 @@ function createAvatar3D(container, options = {}) {
         startThreshold: clampVoiceThreshold(initialVoiceStart),
         maxThreshold: clampVoiceThreshold(initialVoiceMax),
         mouthLimit: clampMouthIntensity(initialMouthIntensity),
-        blinkIntervalMin: 2,
-        blinkIntervalMax: 4,
+        blinkIntensity: clampBlinkIntensity(initialBlinkIntensity),
+        blinkIntervalMin: clampBlinkInterval(initialBlinkIntervalMin),
+        blinkIntervalMax: clampBlinkInterval(initialBlinkIntervalMax),
         cameraPosition: options.cameraPosition || [0, 1.0, 2.5], // Closer
         cameraTarget: options.cameraTarget || [0, 0.5, 0],
         modelPosition: options.modelPosition || [0, -0.5, 0],
@@ -96,7 +115,7 @@ function createAvatar3D(container, options = {}) {
     let targetMouth = 0;
     let isBlinking = false;
     let blinkTimer = 0;
-    let isBlinkEnabled = true;
+    let isBlinkEnabled = initialBlinkEnabled;
     let isReady = false;
     let disposed = false;
     let rafId = null;
@@ -231,7 +250,8 @@ function createAvatar3D(container, options = {}) {
     }
 
     function applyBlink(amount) {
-        blinkKeys.forEach((k) => { k.inf[k.index] = Math.max(0, Math.min(1, amount)); });
+        const limited = Math.min(amount, CONFIG.blinkIntensity);
+        blinkKeys.forEach((k) => { k.inf[k.index] = Math.max(0, Math.min(1, limited)); });
     }
 
     // In avatar3d.js, modify the loadModel function
@@ -466,6 +486,20 @@ function createAvatar3D(container, options = {}) {
             if (mouthIntensity !== undefined) CONFIG.mouthLimit = clampMouthIntensity(mouthIntensity);
             if (voiceStart !== undefined) CONFIG.startThreshold = clampVoiceThreshold(voiceStart);
             if (voiceMax !== undefined) CONFIG.maxThreshold = clampVoiceThreshold(voiceMax);
+        },
+        getBlinkSettings() {
+            return { blinkIntensity: CONFIG.blinkIntensity, blinkIntervalMin: CONFIG.blinkIntervalMin, blinkIntervalMax: CONFIG.blinkIntervalMax, blinkEnabled: isBlinkEnabled };
+        },
+        // Used by the blink sliders/toggle in Edit Profile so dragging them
+        // previews live against the mounted model, same idea as
+        // setLipSyncSettings(). Interval changes only take effect the next
+        // time a wait is picked (i.e. after the blink in progress, or the
+        // current wait, finishes) rather than retroactively.
+        setBlinkSettings({ blinkIntensity, blinkIntervalMin, blinkIntervalMax, blinkEnabled } = {}) {
+            if (blinkIntensity !== undefined) CONFIG.blinkIntensity = clampBlinkIntensity(blinkIntensity);
+            if (blinkIntervalMin !== undefined) CONFIG.blinkIntervalMin = clampBlinkInterval(blinkIntervalMin);
+            if (blinkIntervalMax !== undefined) CONFIG.blinkIntervalMax = clampBlinkInterval(blinkIntervalMax);
+            if (blinkEnabled !== undefined) isBlinkEnabled = blinkEnabled;
         },
         toggleBlink(enabled) {
             isBlinkEnabled = enabled !== undefined ? enabled : !isBlinkEnabled;

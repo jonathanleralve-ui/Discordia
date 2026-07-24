@@ -71,6 +71,16 @@ ALTER TABLE users ADD COLUMN IF NOT EXISTS avatar_model_mouth_intensity DOUBLE P
 ALTER TABLE users ADD COLUMN IF NOT EXISTS avatar_model_voice_start DOUBLE PRECISION NOT NULL DEFAULT 5;
 ALTER TABLE users ADD COLUMN IF NOT EXISTS avatar_model_voice_max DOUBLE PRECISION NOT NULL DEFAULT 59;
 
+-- Blink tuning for the 3D model: how closed the eye shape key gets at the
+-- peak of a blink (0-1, default 1 = fully closed, matching the old
+-- hardcoded behavior), the random min/max seconds between blinks (defaults
+-- match avatar3d.js's old hardcoded CONFIG.blinkIntervalMin/Max), and
+-- whether blinking is on at all.
+ALTER TABLE users ADD COLUMN IF NOT EXISTS avatar_model_blink_intensity DOUBLE PRECISION NOT NULL DEFAULT 1;
+ALTER TABLE users ADD COLUMN IF NOT EXISTS avatar_model_blink_interval_min DOUBLE PRECISION NOT NULL DEFAULT 2;
+ALTER TABLE users ADD COLUMN IF NOT EXISTS avatar_model_blink_interval_max DOUBLE PRECISION NOT NULL DEFAULT 4;
+ALTER TABLE users ADD COLUMN IF NOT EXISTS avatar_model_blink_enabled BOOLEAN NOT NULL DEFAULT true;
+
 CREATE TABLE IF NOT EXISTS friendships (
   id SERIAL PRIMARY KEY,
   requester_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,

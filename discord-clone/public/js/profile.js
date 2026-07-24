@@ -33,6 +33,13 @@ const Profile = (() => {
   let selectedMouthIntensity = 0.5;
   let selectedVoiceStart = 5;
   let selectedVoiceMax = 59;
+  // Blink tuning: how closed the eye shape key gets at the peak of a blink
+  // (0-1), the random min/max seconds between blinks, and whether blinking
+  // is on at all. Defaults match avatar3d.js's CONFIG.
+  let selectedBlinkIntensity = 1;
+  let selectedBlinkIntervalMin = 2;
+  let selectedBlinkIntervalMax = 4;
+  let selectedBlinkEnabled = true;
 
   // Optional live mic test so the user can see/hear how their thresholds
   // respond to actual speech while tuning them, instead of guessing. Fully
@@ -82,6 +89,7 @@ const Profile = (() => {
     $('#edit-profile-model-zoom-slider').value = String(selectedModelZoom);
     $('#edit-profile-model-rotation-slider').value = String(selectedModelRotationY);
     renderLipSyncSliders();
+    renderBlinkSliders();
 
     const toggle = $('#edit-profile-3d-toggle');
     toggle.checked = avatarMode === '3d';
@@ -126,6 +134,10 @@ const Profile = (() => {
       mouthIntensity: selectedMouthIntensity,
       voiceStart: selectedVoiceStart,
       voiceMax: selectedVoiceMax,
+      blinkIntensity: selectedBlinkIntensity,
+      blinkIntervalMin: selectedBlinkIntervalMin,
+      blinkIntervalMax: selectedBlinkIntervalMax,
+      blinkEnabled: selectedBlinkEnabled,
       onReady: () => box.classList.remove('model-preview-loading'),
       onError: () => {
         box.classList.remove('model-preview-loading');
@@ -204,6 +216,63 @@ const Profile = (() => {
     renderLipSyncSliders();
     if (modelPreviewInstance) {
       modelPreviewInstance.setLipSyncSettings({ mouthIntensity: selectedMouthIntensity, voiceStart: selectedVoiceStart, voiceMax: selectedVoiceMax });
+    }
+  }
+
+  function renderBlinkSliders() {
+    $('#edit-profile-model-blink-toggle').checked = selectedBlinkEnabled;
+    $('#edit-profile-model-blink-intensity-slider').value = String(selectedBlinkIntensity);
+    $('#edit-profile-model-blink-min-slider').value = String(selectedBlinkIntervalMin);
+    $('#edit-profile-model-blink-max-slider').value = String(selectedBlinkIntervalMax);
+    $('#edit-profile-model-blink-intensity-value').textContent = `${Math.round(selectedBlinkIntensity * 100)}%`;
+    $('#edit-profile-model-blink-min-value').textContent = `${selectedBlinkIntervalMin.toFixed(1)}s`;
+    $('#edit-profile-model-blink-max-value').textContent = `${selectedBlinkIntervalMax.toFixed(1)}s`;
+  }
+
+  function applyBlinkToggle(enabled) {
+    selectedBlinkEnabled = enabled;
+    if (modelPreviewInstance) modelPreviewInstance.setBlinkSettings({ blinkEnabled: selectedBlinkEnabled });
+  }
+
+  function applyBlinkIntensityFromSlider(value) {
+    selectedBlinkIntensity = Number(value);
+    renderBlinkSliders();
+    if (modelPreviewInstance) modelPreviewInstance.setBlinkSettings({ blinkIntensity: selectedBlinkIntensity });
+  }
+
+  function applyBlinkMinFromSlider(value) {
+    selectedBlinkIntervalMin = Number(value);
+    // Keep min at or below max, same "nudge the other one" approach as the
+    // voice thresholds - a min past the max would never actually be used.
+    if (selectedBlinkIntervalMin > selectedBlinkIntervalMax) {
+      selectedBlinkIntervalMax = Math.min(20, selectedBlinkIntervalMin);
+    }
+    renderBlinkSliders();
+    if (modelPreviewInstance) modelPreviewInstance.setBlinkSettings({ blinkIntervalMin: selectedBlinkIntervalMin, blinkIntervalMax: selectedBlinkIntervalMax });
+  }
+
+  function applyBlinkMaxFromSlider(value) {
+    selectedBlinkIntervalMax = Number(value);
+    if (selectedBlinkIntervalMax < selectedBlinkIntervalMin) {
+      selectedBlinkIntervalMin = Math.max(0.2, selectedBlinkIntervalMax);
+    }
+    renderBlinkSliders();
+    if (modelPreviewInstance) modelPreviewInstance.setBlinkSettings({ blinkIntervalMin: selectedBlinkIntervalMin, blinkIntervalMax: selectedBlinkIntervalMax });
+  }
+
+  function resetBlinkSettings() {
+    selectedBlinkIntensity = 1;
+    selectedBlinkIntervalMin = 2;
+    selectedBlinkIntervalMax = 4;
+    selectedBlinkEnabled = true;
+    renderBlinkSliders();
+    if (modelPreviewInstance) {
+      modelPreviewInstance.setBlinkSettings({
+        blinkIntensity: selectedBlinkIntensity,
+        blinkIntervalMin: selectedBlinkIntervalMin,
+        blinkIntervalMax: selectedBlinkIntervalMax,
+        blinkEnabled: selectedBlinkEnabled
+      });
     }
   }
 
@@ -294,6 +363,10 @@ const Profile = (() => {
     selectedMouthIntensity = AppState.me.avatarModelMouthIntensity ?? 0.5;
     selectedVoiceStart = AppState.me.avatarModelVoiceStart ?? 5;
     selectedVoiceMax = AppState.me.avatarModelVoiceMax ?? 59;
+    selectedBlinkIntensity = AppState.me.avatarModelBlinkIntensity ?? 1;
+    selectedBlinkIntervalMin = AppState.me.avatarModelBlinkIntervalMin ?? 2;
+    selectedBlinkIntervalMax = AppState.me.avatarModelBlinkIntervalMax ?? 4;
+    selectedBlinkEnabled = AppState.me.avatarModelBlinkEnabled ?? true;
     renderPhotoPreview();
     renderNameColorSwatches();
     renderModelSection();
@@ -333,7 +406,7 @@ const Profile = (() => {
 
     const finalizeSave = (avatarUrl) => {
       // Do not send avatarColor (removed from UI) so pass undefined
-      Api.auth.updateMe(displayName, undefined, avatarUrl, selectedNameColor, selectedModelUrl, avatarMode, selectedModelZoom, selectedModelOffsetX, selectedModelOffsetY, selectedModelRotationY, selectedMouthIntensity, selectedVoiceStart, selectedVoiceMax)
+      Api.auth.updateMe(displayName, undefined, avatarUrl, selectedNameColor, selectedModelUrl, avatarMode, selectedModelZoom, selectedModelOffsetX, selectedModelOffsetY, selectedModelRotationY, selectedMouthIntensity, selectedVoiceStart, selectedVoiceMax, selectedBlinkIntensity, selectedBlinkIntervalMin, selectedBlinkIntervalMax, selectedBlinkEnabled)
         .then((data) => {
           Object.assign(AppState.me, data.user);
           $('#me-name').textContent = AppState.me.displayName;
@@ -407,6 +480,10 @@ const Profile = (() => {
       selectedMouthIntensity = 0.5;
       selectedVoiceStart = 5;
       selectedVoiceMax = 59;
+      selectedBlinkIntensity = 1;
+      selectedBlinkIntervalMin = 2;
+      selectedBlinkIntervalMax = 4;
+      selectedBlinkEnabled = true;
       renderModelSection();
       disposeModelPreview();
     });
@@ -418,6 +495,11 @@ const Profile = (() => {
     $('#edit-profile-model-voicemax-slider').addEventListener('input', (e) => applyVoiceMaxFromSlider(e.target.value));
     $('#edit-profile-model-lipsync-reset').addEventListener('click', resetLipSync);
     $('#edit-profile-model-mic-test').addEventListener('click', toggleMicTest);
+    $('#edit-profile-model-blink-toggle').addEventListener('change', (e) => applyBlinkToggle(e.target.checked));
+    $('#edit-profile-model-blink-intensity-slider').addEventListener('input', (e) => applyBlinkIntensityFromSlider(e.target.value));
+    $('#edit-profile-model-blink-min-slider').addEventListener('input', (e) => applyBlinkMinFromSlider(e.target.value));
+    $('#edit-profile-model-blink-max-slider').addEventListener('input', (e) => applyBlinkMaxFromSlider(e.target.value));
+    $('#edit-profile-model-blink-reset').addEventListener('click', resetBlinkSettings);
     $('#edit-profile-model-file').addEventListener('change', (e) => {
       const file = e.target.files && e.target.files[0];
       e.target.value = '';
@@ -438,6 +520,10 @@ const Profile = (() => {
           selectedMouthIntensity = 0.5;
           selectedVoiceStart = 5;
           selectedVoiceMax = 59;
+          selectedBlinkIntensity = 1;
+          selectedBlinkIntervalMin = 2;
+          selectedBlinkIntervalMax = 4;
+          selectedBlinkEnabled = true;
           renderModelSection();
           mountModelPreview(selectedModelUrl);
         })

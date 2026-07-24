@@ -36,6 +36,10 @@ function getRoster(channelId) {
     avatarModelMouthIntensity: info.avatarModelMouthIntensity,
     avatarModelVoiceStart: info.avatarModelVoiceStart,
     avatarModelVoiceMax: info.avatarModelVoiceMax,
+    avatarModelBlinkIntensity: info.avatarModelBlinkIntensity,
+    avatarModelBlinkIntervalMin: info.avatarModelBlinkIntervalMin,
+    avatarModelBlinkIntervalMax: info.avatarModelBlinkIntervalMax,
+    avatarModelBlinkEnabled: info.avatarModelBlinkEnabled,
     sharing: info.sharing,
     muted: info.muted
   }));
@@ -86,7 +90,7 @@ function registerVoiceHandlers(io, socket, db) {
         leaveVoiceChannel(io, socket, socket.currentVoiceChannel);
       }
 
-      const userResult = await db.query('SELECT display_name, avatar_color, avatar_url, name_color, avatar_model_url, avatar_mode, avatar_model_zoom, avatar_model_offset_x, avatar_model_offset_y, avatar_model_rotation_y, avatar_model_mouth_intensity, avatar_model_voice_start, avatar_model_voice_max FROM users WHERE id = $1', [uid]);
+      const userResult = await db.query('SELECT display_name, avatar_color, avatar_url, name_color, avatar_model_url, avatar_mode, avatar_model_zoom, avatar_model_offset_x, avatar_model_offset_y, avatar_model_rotation_y, avatar_model_mouth_intensity, avatar_model_voice_start, avatar_model_voice_max, avatar_model_blink_intensity, avatar_model_blink_interval_min, avatar_model_blink_interval_max, avatar_model_blink_enabled FROM users WHERE id = $1', [uid]);
       const user = userResult.rows[0];
 
       // Tell the joining client who is already in the channel, so it can initiate connections to each
@@ -100,6 +104,10 @@ function registerVoiceHandlers(io, socket, db) {
         avatarModelMouthIntensity: user.avatar_model_mouth_intensity,
         avatarModelVoiceStart: user.avatar_model_voice_start,
         avatarModelVoiceMax: user.avatar_model_voice_max,
+        avatarModelBlinkIntensity: user.avatar_model_blink_intensity,
+        avatarModelBlinkIntervalMin: user.avatar_model_blink_interval_min,
+        avatarModelBlinkIntervalMax: user.avatar_model_blink_interval_max,
+        avatarModelBlinkEnabled: user.avatar_model_blink_enabled,
         sharing: false, muted: !!muted
       };
       voiceRoom(cid).set(socket.id, info);

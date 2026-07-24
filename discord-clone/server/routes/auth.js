@@ -29,6 +29,10 @@ function publicUser(u) {
     avatarModelMouthIntensity: u.avatar_model_mouth_intensity,
     avatarModelVoiceStart: u.avatar_model_voice_start,
     avatarModelVoiceMax: u.avatar_model_voice_max,
+    avatarModelBlinkIntensity: u.avatar_model_blink_intensity,
+    avatarModelBlinkIntervalMin: u.avatar_model_blink_interval_min,
+    avatarModelBlinkIntervalMax: u.avatar_model_blink_interval_max,
+    avatarModelBlinkEnabled: u.avatar_model_blink_enabled,
     status: u.status
   };
 }
@@ -112,7 +116,8 @@ router.patch('/me', auth, async (req, res) => {
     const {
       displayName, avatarColor, avatarUrl, nameColor, avatarModelUrl, avatarMode,
       avatarModelZoom, avatarModelOffsetX, avatarModelOffsetY, avatarModelRotationY,
-      avatarModelMouthIntensity, avatarModelVoiceStart, avatarModelVoiceMax
+      avatarModelMouthIntensity, avatarModelVoiceStart, avatarModelVoiceMax,
+      avatarModelBlinkIntensity, avatarModelBlinkIntervalMin, avatarModelBlinkIntervalMax, avatarModelBlinkEnabled
     } = req.body || {};
     const updates = [];
     const values = [];
@@ -220,6 +225,34 @@ router.patch('/me', auth, async (req, res) => {
       if (!Number.isFinite(x)) return res.status(400).json({ error: 'Invalid voice max threshold' });
       updates.push(`avatar_model_voice_max = $${idx++}`);
       values.push(Math.min(100, Math.max(0, x)));
+    }
+
+    // Blink tuning: intensity (0-1), interval min/max (0.2-20s), enabled
+    // (bool). Same clamp-not-reject reasoning as the fields above.
+    if (avatarModelBlinkIntensity !== undefined) {
+      const b = Number(avatarModelBlinkIntensity);
+      if (!Number.isFinite(b)) return res.status(400).json({ error: 'Invalid blink intensity value' });
+      updates.push(`avatar_model_blink_intensity = $${idx++}`);
+      values.push(Math.min(1, Math.max(0, b)));
+    }
+
+    if (avatarModelBlinkIntervalMin !== undefined) {
+      const bMin = Number(avatarModelBlinkIntervalMin);
+      if (!Number.isFinite(bMin)) return res.status(400).json({ error: 'Invalid blink interval value' });
+      updates.push(`avatar_model_blink_interval_min = $${idx++}`);
+      values.push(Math.min(20, Math.max(0.2, bMin)));
+    }
+
+    if (avatarModelBlinkIntervalMax !== undefined) {
+      const bMax = Number(avatarModelBlinkIntervalMax);
+      if (!Number.isFinite(bMax)) return res.status(400).json({ error: 'Invalid blink interval value' });
+      updates.push(`avatar_model_blink_interval_max = $${idx++}`);
+      values.push(Math.min(20, Math.max(0.2, bMax)));
+    }
+
+    if (avatarModelBlinkEnabled !== undefined) {
+      updates.push(`avatar_model_blink_enabled = $${idx++}`);
+      values.push(!!avatarModelBlinkEnabled);
     }
 
     if (updates.length === 0) {
