@@ -18,14 +18,29 @@ function createAvatar3D(container, options = {}) {
         modelUrl,
         onReady = () => {},
         onError = () => {},
-        // Interactive orbit/zoom/pan (drag to rotate, scroll to zoom,
-        // right-drag/two-finger to pan). Off by default: the voice-chat
-        // tiles are tiny 96x96 rings and shouldn't eat mouse input from the
-        // rest of the UI. Turn on for a standalone test/debug view.
+        // Interactive drag-to-pan / scroll-to-zoom framing (rotation is
+        // intentionally left off - this is a "crop the shot" control, not a
+        // full 3D orbit view). Off by default: the voice-chat tiles are
+        // tiny 96x96 rings and shouldn't eat mouse input from the rest of
+        // the UI. Turn on for the Edit Profile preview so the user can
+        // frame their model.
         controls: controlsEnabled = false,
         // Decorative idle sway - only makes sense when nobody's manually
-        // orbiting the camera. Defaults to whatever controls isn't doing.
+        // framing the shot. Defaults to whatever controls isn't doing.
         autoRotate: autoRotateEnabled = !controlsEnabled,
+        // Saved framing: zoom is a camera-distance multiplier (1 = default,
+        // <1 = closer/bigger, >1 = further/smaller); offsetX/offsetY pan the
+        // framing target left/right/up/down in world units. These are what
+        // gets persisted to the user's profile so every place the model
+        // renders (voice tiles, other people's screens) uses the same crop
+        // the user chose in Edit Profile.
+        zoom: initialZoom = 1,
+        offsetX: initialOffsetX = 0,
+        offsetY: initialOffsetY = 0,
+        // Fired whenever the user finishes a drag/scroll gesture (controls
+        // must be enabled), with the resulting { zoom, offsetX, offsetY } -
+        // so the caller can save it.
+        onFramingChange = () => {},
     } = options;
 
     // Update CONFIG in createAvatar3D
@@ -42,6 +57,14 @@ function createAvatar3D(container, options = {}) {
         autoRotateSpeed: 0.25,
     };
 
+    // Same clamp range as the server (server/routes/auth.js) so what the
+    // user sees while dragging matches what will actually be saved.
+    const ZOOM_MIN = 0.3, ZOOM_MAX = 3, OFFSET_MAX = 2;
+    let zoom = Math.min(ZOOM_MAX, Math.max(ZOOM_MIN, initialZoom));
+    let offsetX = Math.min(OFFSET_MAX, Math.max(-OFFSET_MAX, initialOffsetX));
+    let offsetY = Math.min(OFFSET_MAX, Math.max(-OFFSET_MAX, initialOffsetY));
+    let baseTarget, baseDistance, baseDirection;
+
     let scene, camera, renderer, controls;
     let model = null;
     let mouthKeys = [];
@@ -55,15 +78,35 @@ function createAvatar3D(container, options = {}) {
     let rafId = null;
     let lastTime = performance.now();
 
+    function applyFraming() {
+        // target = base target, panned by the saved/dragged offset
+        const target = new THREE.Vector3(
+            baseTarget.x + offsetX,
+            baseTarget.y + offsetY,
+            baseTarget.z
+        );
+        camera.position.copy(target).addScaledVector(baseDirection, baseDistance * zoom);
+        camera.lookAt(target);
+        if (controls) controls.target.copy(target);
+    }
+
     function initScene() {
         const width = container.clientWidth || 96;
         const height = container.clientHeight || 96;
 
         scene = new THREE.Scene();
 
-        camera = new THREE.PerspectiveCamera(45, width / height, 0.1, 50); // Wider FOV
-        camera.position.set(0, 1.5, 6.0); // Further back
-        camera.lookAt(0, 1.0, 0);
+        camera = new THREE.PerspectiveCamera(45, width / height, 0.1, 50);
+
+        // Base (unzoomed/uncentered) camera rig, from CONFIG - this used to
+        // be hardcoded here and CONFIG.cameraPosition/cameraTarget were
+        // silently ignored, which is why passing a closer cameraPosition
+        // never actually made the model bigger.
+        const basePos = new THREE.Vector3(...CONFIG.cameraPosition);
+        baseTarget = new THREE.Vector3(...CONFIG.cameraTarget);
+        baseDirection = basePos.clone().sub(baseTarget);
+        baseDistance = baseDirection.length() || 1;
+        baseDirection.normalize();
 
         renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
         renderer.setSize(width, height);
@@ -71,12 +114,39 @@ function createAvatar3D(container, options = {}) {
         container.appendChild(renderer.domElement);
 
         controls = new OrbitControls(camera, renderer.domElement);
-        controls.target.set(...CONFIG.cameraTarget);
         controls.enableDamping = true;
         controls.dampingFactor = 0.08;
-        controls.minDistance = 0.5;
-        controls.maxDistance = 10;
+        controls.minDistance = baseDistance * ZOOM_MIN;
+        controls.maxDistance = baseDistance * ZOOM_MAX;
+
+        // This is a "frame the shot" control, not a free-look orbit camera:
+        // rotation is off, only pan (drag) and zoom (scroll/pinch) are
+        // allowed, and only when explicitly enabled by the caller (the
+        // Edit Profile preview turns this on; voice-chat tiles leave it
+        // off).
+        controls.enabled = controlsEnabled;
+        controls.enableRotate = false;
+        controls.enableZoom = controlsEnabled;
+        controls.enablePan = controlsEnabled;
+        controls.screenSpacePanning = true;
+        controls.mouseButtons = { LEFT: THREE.MOUSE.PAN, MIDDLE: THREE.MOUSE.DOLLY, RIGHT: THREE.MOUSE.PAN };
+        controls.touches = { ONE: THREE.TOUCH.PAN, TWO: THREE.TOUCH.DOLLY_PAN };
+
+        applyFraming();
         controls.update();
+
+        if (controlsEnabled) {
+            const emitFramingChange = () => {
+                zoom = Math.min(ZOOM_MAX, Math.max(ZOOM_MIN, camera.position.distanceTo(controls.target) / baseDistance));
+                offsetX = Math.min(OFFSET_MAX, Math.max(-OFFSET_MAX, controls.target.x - baseTarget.x));
+                offsetY = Math.min(OFFSET_MAX, Math.max(-OFFSET_MAX, controls.target.y - baseTarget.y));
+                onFramingChange({ zoom, offsetX, offsetY });
+            };
+            // 'end' fires once when a drag/scroll gesture finishes - that's
+            // the point to report the settled value back to the caller,
+            // rather than spamming it on every intermediate frame.
+            controls.addEventListener('end', emitFramingChange);
+        }
 
         // Brighter lights to see the model
         const ambient = new THREE.AmbientLight(0xffffff, 0.8);
@@ -87,7 +157,7 @@ function createAvatar3D(container, options = {}) {
         const fill = new THREE.DirectionalLight(0xaaccff, 0.8);
         fill.position.set(-3, 2, 2);
         scene.add(fill);
-        
+
         // Add a grid helper to see the ground
         const gridHelper = new THREE.GridHelper(5, 10, 0x888888, 0x444444);
         scene.add(gridHelper);
@@ -322,6 +392,21 @@ function createAvatar3D(container, options = {}) {
     const api = {
         setVoiceLevel(level) {
             pendingVoiceLevel = level || 0;
+        },
+        getFraming() {
+            return { zoom, offsetX, offsetY };
+        },
+        // Used by the zoom slider / reset button - anything driving framing
+        // outside of direct drag/scroll on the canvas itself.
+        setFraming({ zoom: z, offsetX: ox, offsetY: oy } = {}) {
+            if (z !== undefined) zoom = Math.min(ZOOM_MAX, Math.max(ZOOM_MIN, z));
+            if (ox !== undefined) offsetX = Math.min(OFFSET_MAX, Math.max(-OFFSET_MAX, ox));
+            if (oy !== undefined) offsetY = Math.min(OFFSET_MAX, Math.max(-OFFSET_MAX, oy));
+            if (camera && baseTarget) {
+                applyFraming();
+                if (controls) controls.update();
+                renderer.render(scene, camera);
+            }
         },
         toggleBlink(enabled) {
             isBlinkEnabled = enabled !== undefined ? enabled : !isBlinkEnabled;

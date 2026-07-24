@@ -20,6 +20,12 @@ const Profile = (() => {
   let selectedModelUrl = null;
   let avatarMode = 'flat';
   let modelPreviewInstance = null;
+  // Framing (zoom/pan) for the 3D model, set by dragging/scrolling on the
+  // preview or the zoom slider below it, and saved to the profile so it's
+  // reused everywhere the model renders (voice tiles, other people's screens).
+  let selectedModelZoom = 1;
+  let selectedModelOffsetX = 0;
+  let selectedModelOffsetY = 0;
 
   const NAME_COLORS = ['#5865F2', '#EB459E', '#57F287', '#FEE75C', '#ED4245', '#3BA55D', '#FAA61A'];
 
@@ -56,6 +62,8 @@ const Profile = (() => {
     status.textContent = hasModel ? 'A 3D model is set for voice chat' : 'No 3D model uploaded yet';
 
     $('#edit-profile-model-remove-btn').classList.toggle('hidden', !hasModel);
+    $('#edit-profile-model-framing').classList.toggle('hidden', !hasModel);
+    $('#edit-profile-model-zoom-slider').value = String(selectedModelZoom);
 
     const toggle = $('#edit-profile-3d-toggle');
     toggle.checked = avatarMode === '3d';
@@ -91,12 +99,35 @@ const Profile = (() => {
 
     modelPreviewInstance = window.Avatar3D.createAvatar(box, {
       modelUrl,
+      controls: true,
+      zoom: selectedModelZoom,
+      offsetX: selectedModelOffsetX,
+      offsetY: selectedModelOffsetY,
       onReady: () => box.classList.remove('model-preview-loading'),
       onError: () => {
         box.classList.remove('model-preview-loading');
         box.classList.add('model-preview-error');
+      },
+      onFramingChange: ({ zoom, offsetX, offsetY }) => {
+        selectedModelZoom = zoom;
+        selectedModelOffsetX = offsetX;
+        selectedModelOffsetY = offsetY;
+        $('#edit-profile-model-zoom-slider').value = String(zoom);
       }
     });
+  }
+
+  function applyZoomFromSlider(value) {
+    selectedModelZoom = Number(value);
+    if (modelPreviewInstance) modelPreviewInstance.setFraming({ zoom: selectedModelZoom });
+  }
+
+  function resetFraming() {
+    selectedModelZoom = 1;
+    selectedModelOffsetX = 0;
+    selectedModelOffsetY = 0;
+    $('#edit-profile-model-zoom-slider').value = '1';
+    if (modelPreviewInstance) modelPreviewInstance.setFraming({ zoom: 1, offsetX: 0, offsetY: 0 });
   }
 
   function renderPhotoPreview() {
@@ -123,10 +154,12 @@ const Profile = (() => {
     selectedNameColor = AppState.me.nameColor || null;
     selectedModelUrl = AppState.me.avatarModelUrl || null;
     avatarMode = AppState.me.avatarMode || 'flat';
+    selectedModelZoom = AppState.me.avatarModelZoom ?? 1;
+    selectedModelOffsetX = AppState.me.avatarModelOffsetX ?? 0;
+    selectedModelOffsetY = AppState.me.avatarModelOffsetY ?? 0;
     renderPhotoPreview();
     renderNameColorSwatches();
     renderModelSection();
-    mountModelPreview(selectedModelUrl);
 
     $('#chat-panel').classList.add('hidden');
     $('#empty-state').classList.add('hidden');
@@ -134,6 +167,12 @@ const Profile = (() => {
     $('#group-settings-panel').classList.add('hidden');
     $('#edit-profile-panel').classList.remove('hidden');
     $('#edit-profile-displayname').focus();
+
+    // Mount the 3D preview only after the panel (and its 320x320 box) is
+    // actually laid out - doing this before unhiding the panel would leave
+    // the container at 0x0 clientWidth/Height, and the renderer/camera
+    // would silently fall back to a 96x96 canvas stretched to fill the box.
+    mountModelPreview(selectedModelUrl);
   }
 
   function closeModal() {
@@ -157,7 +196,7 @@ const Profile = (() => {
 
     const finalizeSave = (avatarUrl) => {
       // Do not send avatarColor (removed from UI) so pass undefined
-      Api.auth.updateMe(displayName, undefined, avatarUrl, selectedNameColor, selectedModelUrl, avatarMode)
+      Api.auth.updateMe(displayName, undefined, avatarUrl, selectedNameColor, selectedModelUrl, avatarMode, selectedModelZoom, selectedModelOffsetX, selectedModelOffsetY)
         .then((data) => {
           Object.assign(AppState.me, data.user);
           $('#me-name').textContent = AppState.me.displayName;
@@ -224,9 +263,14 @@ const Profile = (() => {
     $('#edit-profile-model-remove-btn').addEventListener('click', () => {
       selectedModelUrl = null;
       avatarMode = 'flat';
+      selectedModelZoom = 1;
+      selectedModelOffsetX = 0;
+      selectedModelOffsetY = 0;
       renderModelSection();
       disposeModelPreview();
     });
+    $('#edit-profile-model-zoom-slider').addEventListener('input', (e) => applyZoomFromSlider(e.target.value));
+    $('#edit-profile-model-zoom-reset').addEventListener('click', resetFraming);
     $('#edit-profile-model-file').addEventListener('change', (e) => {
       const file = e.target.files && e.target.files[0];
       e.target.value = '';
@@ -240,6 +284,9 @@ const Profile = (() => {
       Api.avatarModel.upload(file)
         .then((data) => {
           selectedModelUrl = data.modelUrl;
+          selectedModelZoom = 1;
+          selectedModelOffsetX = 0;
+          selectedModelOffsetY = 0;
           renderModelSection();
           mountModelPreview(selectedModelUrl);
         })

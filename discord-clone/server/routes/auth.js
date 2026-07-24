@@ -22,6 +22,9 @@ function publicUser(u) {
     nameColor: u.name_color,
     avatarModelUrl: u.avatar_model_url,
     avatarMode: u.avatar_mode,
+    avatarModelZoom: u.avatar_model_zoom,
+    avatarModelOffsetX: u.avatar_model_offset_x,
+    avatarModelOffsetY: u.avatar_model_offset_y,
     status: u.status
   };
 }
@@ -102,7 +105,10 @@ router.get('/me', auth, async (req, res) => {
 
 router.patch('/me', auth, async (req, res) => {
   try {
-    const { displayName, avatarColor, avatarUrl, nameColor, avatarModelUrl, avatarMode } = req.body || {};
+    const {
+      displayName, avatarColor, avatarUrl, nameColor, avatarModelUrl, avatarMode,
+      avatarModelZoom, avatarModelOffsetX, avatarModelOffsetY
+    } = req.body || {};
     const updates = [];
     const values = [];
     let idx = 1;
@@ -147,6 +153,31 @@ router.patch('/me', auth, async (req, res) => {
       }
       updates.push(`avatar_mode = $${idx++}`);
       values.push(avatarMode);
+    }
+
+    // Clamp rather than reject out-of-range framing values - these come from
+    // a drag/scroll gesture client-side, so a stray value (e.g. a fast
+    // scroll landing just past the intended max) shouldn't fail the whole
+    // profile save.
+    if (avatarModelZoom !== undefined) {
+      const z = Number(avatarModelZoom);
+      if (!Number.isFinite(z)) return res.status(400).json({ error: 'Invalid zoom value' });
+      updates.push(`avatar_model_zoom = $${idx++}`);
+      values.push(Math.min(3, Math.max(0.3, z)));
+    }
+
+    if (avatarModelOffsetX !== undefined) {
+      const x = Number(avatarModelOffsetX);
+      if (!Number.isFinite(x)) return res.status(400).json({ error: 'Invalid offset value' });
+      updates.push(`avatar_model_offset_x = $${idx++}`);
+      values.push(Math.min(2, Math.max(-2, x)));
+    }
+
+    if (avatarModelOffsetY !== undefined) {
+      const y = Number(avatarModelOffsetY);
+      if (!Number.isFinite(y)) return res.status(400).json({ error: 'Invalid offset value' });
+      updates.push(`avatar_model_offset_y = $${idx++}`);
+      values.push(Math.min(2, Math.max(-2, y)));
     }
 
     if (updates.length === 0) {

@@ -47,6 +47,16 @@ ALTER TABLE users ADD COLUMN IF NOT EXISTS name_color TEXT;
 ALTER TABLE users ADD COLUMN IF NOT EXISTS avatar_model_url TEXT;
 ALTER TABLE users ADD COLUMN IF NOT EXISTS avatar_mode TEXT NOT NULL DEFAULT 'flat';
 
+-- How the 3D model is framed in its little viewport: zoom is a camera
+-- distance multiplier (1 = default distance, <1 = zoomed in, >1 = zoomed
+-- out) and offset_x/y pan the framing left/right/up/down. Set by the user
+-- via drag-to-pan/scroll-to-zoom (or the slider) on their own model preview
+-- in Edit Profile, then reused everywhere else the model renders (voice
+-- tiles) so it's framed the same way consistently.
+ALTER TABLE users ADD COLUMN IF NOT EXISTS avatar_model_zoom DOUBLE PRECISION NOT NULL DEFAULT 1;
+ALTER TABLE users ADD COLUMN IF NOT EXISTS avatar_model_offset_x DOUBLE PRECISION NOT NULL DEFAULT 0;
+ALTER TABLE users ADD COLUMN IF NOT EXISTS avatar_model_offset_y DOUBLE PRECISION NOT NULL DEFAULT 0;
+
 CREATE TABLE IF NOT EXISTS friendships (
   id SERIAL PRIMARY KEY,
   requester_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,

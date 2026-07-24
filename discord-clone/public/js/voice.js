@@ -451,10 +451,10 @@ const VoiceChat = (() => {
     list.innerHTML = '';
 
     if (connectedChannelId) {
-      list.appendChild(participantTile('self', me.displayName, me.avatarColor, muted, sharingScreen, true, me.avatarUrl, me.nameColor, me.avatarMode, me.avatarModelUrl));
+      list.appendChild(participantTile('self', me.displayName, me.avatarColor, muted, sharingScreen, true, me.avatarUrl, me.nameColor, me.avatarMode, me.avatarModelUrl, me.avatarModelZoom, me.avatarModelOffsetX, me.avatarModelOffsetY));
     }
     Object.entries(peers).forEach(([socketId, { info }]) => {
-      list.appendChild(participantTile(socketId, info.displayName, info.avatarColor, !!info.muted, info.sharing, false, info.avatarUrl, info.nameColor, info.avatarMode, info.avatarModelUrl));
+      list.appendChild(participantTile(socketId, info.displayName, info.avatarColor, !!info.muted, info.sharing, false, info.avatarUrl, info.nameColor, info.avatarMode, info.avatarModelUrl, info.avatarModelZoom, info.avatarModelOffsetX, info.avatarModelOffsetY));
     });
 
     if (list.children.length === 0) {
@@ -462,7 +462,7 @@ const VoiceChat = (() => {
     }
   }
 
-  function participantTile(key, name, color, isMuted, isSharing, isSelf, avatarUrl, nameColor, avatarMode, avatarModelUrl) {
+  function participantTile(key, name, color, isMuted, isSharing, isSelf, avatarUrl, nameColor, avatarMode, avatarModelUrl, avatarModelZoom, avatarModelOffsetX, avatarModelOffsetY) {
     const tile = document.createElement('div');
     tile.className = 'voice-tile';
     tile.dataset.speaker = key;
@@ -472,7 +472,7 @@ const VoiceChat = (() => {
     ring.style.setProperty('--ring-color', color || '#5865F2');
 
     if (avatarMode === '3d' && avatarModelUrl) {
-      mountAvatar3D(ring, key, avatarModelUrl);
+      mountAvatar3D(ring, key, avatarModelUrl, avatarModelZoom, avatarModelOffsetX, avatarModelOffsetY);
     } else {
       disposeAvatar3D(key);
       const avatar = avatarEl({ displayName: name, avatarColor: color, avatarUrl: avatarUrl });
