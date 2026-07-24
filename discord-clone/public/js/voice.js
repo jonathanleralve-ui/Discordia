@@ -21,6 +21,17 @@ const VoiceChat = (() => {
   const speakingDetectors = {}; // key ('self' or socketId) -> { audioCtx, source, rafId }
   const avatar3DInstances = {}; // key -> { api, modelUrl, container }
 
+  // Per-participant avatar-ring diameter (px), adjustable by hovering the
+  // ring and scrolling the wheel. renderParticipants() rebuilds the tile
+  // DOM from scratch on every join/leave/mute/share change, so the size
+  // itself has to live here (keyed like avatar3DInstances) rather than on
+  // the element, or it'd reset back to default on the next re-render.
+  const tileSizes = {}; // key -> diameter in px
+  const TILE_SIZE_DEFAULT = 160;
+  const TILE_SIZE_MIN = 64;
+  const TILE_SIZE_MAX = 360;
+  const TILE_SIZE_STEP = 12;
+
   function $(sel) { return document.querySelector(sel); }
   const { avatarEl, initials } = Utils;
 
@@ -477,6 +488,24 @@ const VoiceChat = (() => {
     const ring = document.createElement('div');
     ring.className = 'avatar-ring';
     ring.style.setProperty('--ring-color', color || '#5865F2');
+    ring.title = 'Scroll to resize';
+
+    const size = tileSizes[key] || TILE_SIZE_DEFAULT;
+    ring.style.width = `${size}px`;
+    ring.style.height = `${size}px`;
+
+    ring.addEventListener('wheel', (e) => {
+      e.preventDefault();
+      const current = tileSizes[key] || TILE_SIZE_DEFAULT;
+      const delta = e.deltaY < 0 ? TILE_SIZE_STEP : -TILE_SIZE_STEP;
+      const next = Math.min(TILE_SIZE_MAX, Math.max(TILE_SIZE_MIN, current + delta));
+      if (next === current) return;
+      tileSizes[key] = next;
+      ring.style.width = `${next}px`;
+      ring.style.height = `${next}px`;
+      const inst = avatar3DInstances[key];
+      if (inst) inst.api.resize();
+    }, { passive: false });
 
     if (avatarMode === '3d' && avatarModelUrl) {
       mountAvatar3D(ring, key, avatarModelUrl, avatarModelZoom, avatarModelOffsetX, avatarModelOffsetY, avatarModelRotationY);

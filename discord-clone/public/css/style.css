@@ -1744,8 +1744,8 @@ input { font-family: inherit; }
 .btn-icon-round.active-danger:hover { background: #d33338; }
 
 .voice-tile .avatar-ring {
-  width: 96px;
-  height: 96px;
+  width: 160px;
+  height: 160px;
   border-radius: 50%;
   padding: 3px;
   border: 3px solid var(--ring-color, #3ba55d);
@@ -1753,6 +1753,10 @@ input { font-family: inherit; }
   align-items: center;
   justify-content: center;
   box-sizing: border-box;
+  /* Size is adjustable per-tile by scrolling the wheel while hovering
+     (see voice.js) - width/height above are just the default/fallback,
+     actual size is set inline per participant. */
+  cursor: ns-resize;
 }
 
 .voice-tile .avatar {
@@ -1780,8 +1784,8 @@ input { font-family: inherit; }
 
 .avatar-3d-tile {
   background: #1e1f22;
-  width: 90px;  /* Match the ring size */
-  height: 90px; /* Match the ring size */
+  width: 100%;  /* Fills whatever size the ring currently is */
+  height: 100%;
   border-radius: 50%;
   overflow: hidden;
   position: relative;
