@@ -20,6 +20,8 @@ function publicUser(u) {
     avatarColor: u.avatar_color,
     avatarUrl: u.avatar_url,
     nameColor: u.name_color,
+    avatarModelUrl: u.avatar_model_url,
+    avatarMode: u.avatar_mode,
     status: u.status
   };
 }
@@ -100,7 +102,7 @@ router.get('/me', auth, async (req, res) => {
 
 router.patch('/me', auth, async (req, res) => {
   try {
-    const { displayName, avatarColor, avatarUrl, nameColor } = req.body || {};
+    const { displayName, avatarColor, avatarUrl, nameColor, avatarModelUrl, avatarMode } = req.body || {};
     const updates = [];
     const values = [];
     let idx = 1;
@@ -132,6 +134,19 @@ router.patch('/me', auth, async (req, res) => {
       }
       updates.push(`name_color = $${idx++}`);
       values.push(nameColor || null);
+    }
+
+    if (avatarModelUrl !== undefined) {
+      updates.push(`avatar_model_url = $${idx++}`);
+      values.push(avatarModelUrl || null);
+    }
+
+    if (avatarMode !== undefined) {
+      if (!['flat', '3d'].includes(avatarMode)) {
+        return res.status(400).json({ error: 'Invalid avatar mode' });
+      }
+      updates.push(`avatar_mode = $${idx++}`);
+      values.push(avatarMode);
     }
 
     if (updates.length === 0) {

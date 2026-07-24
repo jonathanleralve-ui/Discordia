@@ -27,6 +27,8 @@ function getRoster(channelId) {
     avatarColor: info.avatarColor,
     avatarUrl: info.avatarUrl,
     nameColor: info.nameColor,
+    avatarModelUrl: info.avatarModelUrl,
+    avatarMode: info.avatarMode,
     sharing: info.sharing,
     muted: info.muted
   }));
@@ -77,13 +79,13 @@ function registerVoiceHandlers(io, socket, db) {
         leaveVoiceChannel(io, socket, socket.currentVoiceChannel);
       }
 
-      const userResult = await db.query('SELECT display_name, avatar_color, avatar_url, name_color FROM users WHERE id = $1', [uid]);
+      const userResult = await db.query('SELECT display_name, avatar_color, avatar_url, name_color, avatar_model_url, avatar_mode FROM users WHERE id = $1', [uid]);
       const user = userResult.rows[0];
 
       // Tell the joining client who is already in the channel, so it can initiate connections to each
       socket.emit('voice:existing-peers', { peers: voicePeerList(cid) });
 
-      const info = { userId: uid, displayName: user.display_name, avatarColor: user.avatar_color, avatarUrl: user.avatar_url, nameColor: user.name_color, sharing: false, muted: !!muted };
+      const info = { userId: uid, displayName: user.display_name, avatarColor: user.avatar_color, avatarUrl: user.avatar_url, nameColor: user.name_color, avatarModelUrl: user.avatar_model_url, avatarMode: user.avatar_mode, sharing: false, muted: !!muted };
       voiceRoom(cid).set(socket.id, info);
       socket.currentVoiceChannel = cid;
       socket.join(`voice:${cid}`);

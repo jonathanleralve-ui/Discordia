@@ -36,6 +36,17 @@ ALTER TABLE users ADD COLUMN IF NOT EXISTS avatar_url TEXT;
 -- NULL means "use the default text color".
 ALTER TABLE users ADD COLUMN IF NOT EXISTS name_color TEXT;
 
+-- A user can upload a full MMD model package (.pmx + textures) to use as a
+-- 3D "speaker" avatar in voice channels instead of the flat profile photo.
+-- avatar_model_url points at the .pmx file itself (served statically under
+-- /uploads/models/<id>/...); its sibling texture files live alongside it in
+-- the same folder so MMDLoader can resolve them by relative path.
+-- avatar_mode is 'flat' (default, plain photo/initials) or '3d' (use the
+-- model above in voice chat) — kept independent of avatar_model_url so a
+-- user can temporarily switch back to flat without losing their upload.
+ALTER TABLE users ADD COLUMN IF NOT EXISTS avatar_model_url TEXT;
+ALTER TABLE users ADD COLUMN IF NOT EXISTS avatar_mode TEXT NOT NULL DEFAULT 'flat';
+
 CREATE TABLE IF NOT EXISTS friendships (
   id SERIAL PRIMARY KEY,
   requester_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,

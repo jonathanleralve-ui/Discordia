@@ -173,6 +173,25 @@
         <!-- avatar color selection removed -->
         <label>Name Color</label>
         <div class="color-swatch-list" id="edit-profile-namecolor-list"></div>
+
+        <label>3D Voice Avatar</label>
+        <p class="profile-panel-sub" style="margin-top: -6px;">Upload an MMD model (.pmx + textures, zipped) to appear as a 3D lip-synced avatar in voice channels.</p>
+        <div class="profile-photo-section">
+          <div class="profile-model-preview" id="edit-profile-model-preview">
+            <span id="edit-profile-model-preview-placeholder">No model</span>
+          </div>
+          <div class="profile-model-preview-actions">
+            <input type="file" id="edit-profile-model-file" accept=".zip" class="hidden" />
+            <button class="btn-secondary" id="edit-profile-model-upload-btn" type="button">Upload Model (.zip)</button>
+            <button class="btn-secondary hidden" id="edit-profile-model-remove-btn" type="button">Remove</button>
+          </div>
+        </div>
+        <p class="profile-panel-sub" id="edit-profile-model-status">No 3D model uploaded yet</p>
+        <label class="toggle-row" id="edit-profile-3d-toggle-label">
+          <input type="checkbox" id="edit-profile-3d-toggle" />
+          Use 3D avatar in voice chat
+        </label>
+
         <div class="auth-error" id="edit-profile-error"></div>
         <div class="profile-actions">
           <button class="btn-secondary" id="edit-profile-cancel">Cancel</button>
@@ -348,6 +367,15 @@
   </div>
 </div>
 
+<script type="importmap">
+{
+  "imports": {
+    "three": "https://cdn.jsdelivr.net/npm/three@0.149.0/build/three.module.js",
+    "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.149.0/examples/jsm/"
+  }
+}
+</script>
+<script type="module" src="/js/avatar3d.js"></script>
 <script src="/socket.io/socket.io.js"></script>
 <script src="/js/state.js"></script>
 <script src="/js/utils.js"></script>

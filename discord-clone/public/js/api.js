@@ -18,8 +18,8 @@ const Api = (() => {
     register: (username, password, displayName) =>
       request('/auth/register', { method: 'POST', body: JSON.stringify({ username, password, displayName }) }),
     me: () => request('/auth/me'),
-    updateMe: (displayName, avatarColor, avatarUrl, nameColor) =>
-      request('/auth/me', { method: 'PATCH', body: JSON.stringify({ displayName, avatarColor, avatarUrl, nameColor }) })
+    updateMe: (displayName, avatarColor, avatarUrl, nameColor, avatarModelUrl, avatarMode) =>
+      request('/auth/me', { method: 'PATCH', body: JSON.stringify({ displayName, avatarColor, avatarUrl, nameColor, avatarModelUrl, avatarMode }) })
   };
 
   const friends = {
@@ -89,5 +89,22 @@ const Api = (() => {
     }
   };
 
-  return { request, auth, friends, groups, channels, messages };
+  // Uploads a zipped MMD model package (.pmx + textures) and returns
+  // { modelUrl } pointing at the extracted .pmx file.
+  const avatarModel = {
+    upload: (file) => {
+      const formData = new FormData();
+      formData.append('file', file);
+      const headers = {};
+      if (AppState.token) headers['Authorization'] = `Bearer ${AppState.token}`;
+      return fetch('/api/upload/avatar-model', { method: 'POST', headers, body: formData }).then(async (res) => {
+        let data = {};
+        try { data = await res.json(); } catch (e) { /* no body */ }
+        if (!res.ok) throw new Error(data.error || 'Upload failed');
+        return data;
+      });
+    }
+  };
+
+  return { request, auth, friends, groups, channels, messages, avatarModel };
 })();

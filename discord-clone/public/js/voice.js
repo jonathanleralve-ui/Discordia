@@ -19,6 +19,7 @@ const VoiceChat = (() => {
 
   const peers = {};
   const speakingDetectors = {}; // key ('self' or socketId) -> { audioCtx, source, rafId }
+  const avatar3DInstances = {}; // key -> { api, modelUrl, container }
 
   function $(sel) { return document.querySelector(sel); }
   const { avatarEl, initials } = Utils;
@@ -88,6 +89,7 @@ const VoiceChat = (() => {
       connectedGroupId = null;
       Object.keys(peers).forEach(teardownPeer);
       stopSpeakingDetection('self');
+      disposeAvatar3D('self');
     });
   }
 
@@ -152,6 +154,7 @@ const VoiceChat = (() => {
     socket.emit('voice:leave', { channelId: cid });
     Object.keys(peers).forEach(teardownPeer);
     stopSpeakingDetection('self');
+    disposeAvatar3D('self');
 
     if (localMicStream) {
       localMicStream.getTracks().forEach((t) => t.stop());
@@ -328,6 +331,7 @@ const VoiceChat = (() => {
 
     stopSpeakingDetection(socketId);
     removeRemoteVideoTile(socketId);
+    disposeAvatar3D(socketId);
   }
 
   // ============ INTERNAL: SPEAKING DETECTION ============
@@ -364,6 +368,9 @@ const VoiceChat = (() => {
         const now = performance.now();
         if (rms > SPEAKING_THRESHOLD) lastAboveThresholdAt = now;
 
+        const inst = avatar3DInstances[key];
+        if (inst) inst.api.setVoiceLevel(rms);
+
         const nowSpeaking = now - lastAboveThresholdAt < SPEAKING_HOLD_MS;
         if (nowSpeaking !== isSpeaking) {
           isSpeaking = nowSpeaking;
@@ -394,6 +401,48 @@ const VoiceChat = (() => {
     if (ring) ring.classList.toggle('speaking', isSpeaking);
   }
 
+  // ============ INTERNAL: 3D VOICE AVATARS ============
+  // Each participant with avatarMode === '3d' gets a live MMD model instead
+  // of a flat photo. renderParticipants() rebuilds the tile DOM constantly
+  // (on every join/leave/mute/share change), so instances are cached here
+  // by key and their canvas is just re-appended into the new tile rather
+  // than reloaded from the network every time.
+
+  function disposeAvatar3D(key) {
+    const inst = avatar3DInstances[key];
+    if (!inst) return;
+    try { inst.api.dispose(); } catch (e) { /* noop */ }
+    delete avatar3DInstances[key];
+  }
+
+  function mountAvatar3D(ring, key, modelUrl) {
+    let inst = avatar3DInstances[key];
+
+    if (inst && inst.modelUrl !== modelUrl) {
+      disposeAvatar3D(key);
+      inst = null;
+    }
+
+    if (!inst) {
+      const container = document.createElement('div');
+      container.className = 'avatar avatar-3d-tile';
+      if (!window.Avatar3D) {
+        // three.js module hasn't finished loading yet (very unlikely by
+        // the time someone is in a voice call) — fall back silently.
+        container.textContent = '';
+        ring.appendChild(container);
+        return;
+      }
+      const api = window.Avatar3D.createAvatar(container, {
+        modelUrl,
+        onError: () => { container.classList.add('avatar-3d-error'); }
+      });
+      inst = avatar3DInstances[key] = { api, modelUrl, container };
+    }
+
+    ring.appendChild(inst.container);
+  }
+
   // ============ INTERNAL: UI ============
 
   function renderParticipants() {
@@ -402,10 +451,10 @@ const VoiceChat = (() => {
     list.innerHTML = '';
 
     if (connectedChannelId) {
-      list.appendChild(participantTile('self', me.displayName, me.avatarColor, muted, sharingScreen, true, me.avatarUrl, me.nameColor));
+      list.appendChild(participantTile('self', me.displayName, me.avatarColor, muted, sharingScreen, true, me.avatarUrl, me.nameColor, me.avatarMode, me.avatarModelUrl));
     }
     Object.entries(peers).forEach(([socketId, { info }]) => {
-      list.appendChild(participantTile(socketId, info.displayName, info.avatarColor, !!info.muted, info.sharing, false, info.avatarUrl, info.nameColor));
+      list.appendChild(participantTile(socketId, info.displayName, info.avatarColor, !!info.muted, info.sharing, false, info.avatarUrl, info.nameColor, info.avatarMode, info.avatarModelUrl));
     });
 
     if (list.children.length === 0) {
@@ -413,7 +462,7 @@ const VoiceChat = (() => {
     }
   }
 
-  function participantTile(key, name, color, isMuted, isSharing, isSelf, avatarUrl, nameColor) {
+  function participantTile(key, name, color, isMuted, isSharing, isSelf, avatarUrl, nameColor, avatarMode, avatarModelUrl) {
     const tile = document.createElement('div');
     tile.className = 'voice-tile';
     tile.dataset.speaker = key;
@@ -422,8 +471,13 @@ const VoiceChat = (() => {
     ring.className = 'avatar-ring';
     ring.style.setProperty('--ring-color', color || '#5865F2');
 
-    const avatar = avatarEl({ displayName: name, avatarColor: color, avatarUrl: avatarUrl });
-    ring.appendChild(avatar);
+    if (avatarMode === '3d' && avatarModelUrl) {
+      mountAvatar3D(ring, key, avatarModelUrl);
+    } else {
+      disposeAvatar3D(key);
+      const avatar = avatarEl({ displayName: name, avatarColor: color, avatarUrl: avatarUrl });
+      ring.appendChild(avatar);
+    }
 
     if (isMuted) {
       const badge = document.createElement('div');
@@ -449,6 +503,7 @@ const VoiceChat = (() => {
     tile.appendChild(label);
     return tile;
   }
+
 
   function showRemoteVideoTile(socketId, info, stream) {
     const grid = $('#voice-video-grid');
@@ -735,6 +790,10 @@ const VoiceChat = (() => {
     });
   }
 
+  function refreshSelfTile() {
+    if (connectedChannelId) renderParticipants();
+  }
+
   return {
     init,
     joinChannel,
@@ -744,6 +803,7 @@ const VoiceChat = (() => {
     refreshPanelForGroup,
     isConnectedTo,
     isConnectedToGroup,
-    initResizeHandle
+    initResizeHandle,
+    refreshSelfTile
   };
 })();

@@ -14,6 +14,7 @@ const groupRoutes = require('./routes/groups');
 const channelRoutes = require('./routes/channels');
 const messageRoutes = require('./routes/messages');
 const uploadRoutes = require('./routes/upload');
+const avatarModelRoutes = require('./routes/avatarModel');
 
 const app = express();
 const server = http.createServer(app);
@@ -31,6 +32,7 @@ app.use('/api/groups', groupRoutes);
 app.use('/api', channelRoutes); // exposes /api/groups/:groupId/channels and /api/channels/:channelId
 app.use('/api/messages', messageRoutes);
 app.use('/api/upload', uploadRoutes);
+app.use('/api/upload/avatar-model', avatarModelRoutes);
 
 app.get('/api/health', (req, res) => res.json({ ok: true }));
 
