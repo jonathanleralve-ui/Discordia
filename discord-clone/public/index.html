@@ -197,6 +197,23 @@
                 <input type="range" id="edit-profile-model-rotation-slider" min="-3.14159" max="3.14159" step="0.01" value="0" />
               </div>
               <button class="btn-secondary btn-small" id="edit-profile-model-zoom-reset" type="button">Reset framing</button>
+
+              <p class="model-framing-hint model-framing-hint--section">Lip sync</p>
+              <label class="model-framing-label" for="edit-profile-model-mouth-slider">👄 Mouth intensity <span id="edit-profile-model-mouth-value" class="model-framing-value">50%</span></label>
+              <div class="model-framing-row">
+                <input type="range" id="edit-profile-model-mouth-slider" min="0" max="1" step="0.01" value="0.5" />
+              </div>
+              <label class="model-framing-label" for="edit-profile-model-voicestart-slider">🔉 Starts moving at <span id="edit-profile-model-voicestart-value" class="model-framing-value">5%</span></label>
+              <div class="model-framing-row">
+                <input type="range" id="edit-profile-model-voicestart-slider" min="0" max="100" step="1" value="5" />
+              </div>
+              <label class="model-framing-label" for="edit-profile-model-voicemax-slider">🔊 Fully open at <span id="edit-profile-model-voicemax-value" class="model-framing-value">59%</span></label>
+              <div class="model-framing-row">
+                <input type="range" id="edit-profile-model-voicemax-slider" min="0" max="100" step="1" value="59" />
+              </div>
+              <button class="btn-secondary btn-small" id="edit-profile-model-lipsync-reset" type="button">Reset lip sync</button>
+              <button class="btn-secondary btn-small" id="edit-profile-model-mic-test" type="button">🎙️ Test with mic</button>
+              <p class="auth-error" id="edit-profile-model-mic-error"></p>
             </div>
           </div>
         </div>

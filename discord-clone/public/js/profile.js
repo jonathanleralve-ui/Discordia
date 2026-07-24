@@ -27,6 +27,21 @@ const Profile = (() => {
   let selectedModelOffsetX = 0;
   let selectedModelOffsetY = 0;
   let selectedModelRotationY = 0;
+  // Lip-sync tuning: how far the mouth shape key opens at most (0-1), and
+  // the input-volume window (0-100, same RMS-ish scale voice.js's speaking
+  // meter uses) it ramps open across. Defaults match avatar3d.js's CONFIG.
+  let selectedMouthIntensity = 0.5;
+  let selectedVoiceStart = 5;
+  let selectedVoiceMax = 59;
+
+  // Optional live mic test so the user can see/hear how their thresholds
+  // respond to actual speech while tuning them, instead of guessing. Fully
+  // self-contained here (separate from voice.js's own speaking detector,
+  // which only runs during an actual voice-channel call).
+  let micStream = null;
+  let micAudioCtx = null;
+  let micRafId = null;
+  let micTestActive = false;
 
   const NAME_COLORS = ['#5865F2', '#EB459E', '#57F287', '#FEE75C', '#ED4245', '#3BA55D', '#FAA61A'];
 
@@ -66,6 +81,7 @@ const Profile = (() => {
     $('#edit-profile-model-framing').classList.toggle('hidden', !hasModel);
     $('#edit-profile-model-zoom-slider').value = String(selectedModelZoom);
     $('#edit-profile-model-rotation-slider').value = String(selectedModelRotationY);
+    renderLipSyncSliders();
 
     const toggle = $('#edit-profile-3d-toggle');
     toggle.checked = avatarMode === '3d';
@@ -74,6 +90,7 @@ const Profile = (() => {
   }
 
   function disposeModelPreview() {
+    stopMicTest();
     if (modelPreviewInstance) {
       try { modelPreviewInstance.dispose(); } catch (e) { /* noop */ }
       modelPreviewInstance = null;
@@ -106,6 +123,9 @@ const Profile = (() => {
       offsetX: selectedModelOffsetX,
       offsetY: selectedModelOffsetY,
       rotationY: selectedModelRotationY,
+      mouthIntensity: selectedMouthIntensity,
+      voiceStart: selectedVoiceStart,
+      voiceMax: selectedVoiceMax,
       onReady: () => box.classList.remove('model-preview-loading'),
       onError: () => {
         box.classList.remove('model-preview-loading');
@@ -142,6 +162,107 @@ const Profile = (() => {
     if (modelPreviewInstance) modelPreviewInstance.setFraming({ zoom: 1, offsetX: 0, offsetY: 0, rotationY: 0 });
   }
 
+  function renderLipSyncSliders() {
+    $('#edit-profile-model-mouth-slider').value = String(selectedMouthIntensity);
+    $('#edit-profile-model-voicestart-slider').value = String(selectedVoiceStart);
+    $('#edit-profile-model-voicemax-slider').value = String(selectedVoiceMax);
+    $('#edit-profile-model-mouth-value').textContent = `${Math.round(selectedMouthIntensity * 100)}%`;
+    $('#edit-profile-model-voicestart-value').textContent = `${Math.round(selectedVoiceStart)}%`;
+    $('#edit-profile-model-voicemax-value').textContent = `${Math.round(selectedVoiceMax)}%`;
+  }
+
+  function applyMouthIntensityFromSlider(value) {
+    selectedMouthIntensity = Number(value);
+    renderLipSyncSliders();
+    if (modelPreviewInstance) modelPreviewInstance.setLipSyncSettings({ mouthIntensity: selectedMouthIntensity });
+  }
+
+  function applyVoiceStartFromSlider(value) {
+    selectedVoiceStart = Number(value);
+    // Keep start strictly below max so the ramp never inverts - nudge max
+    // up along with it rather than silently clamping/rejecting the drag.
+    if (selectedVoiceStart >= selectedVoiceMax) {
+      selectedVoiceMax = Math.min(100, selectedVoiceStart + 1);
+    }
+    renderLipSyncSliders();
+    if (modelPreviewInstance) modelPreviewInstance.setLipSyncSettings({ voiceStart: selectedVoiceStart, voiceMax: selectedVoiceMax });
+  }
+
+  function applyVoiceMaxFromSlider(value) {
+    selectedVoiceMax = Number(value);
+    if (selectedVoiceMax <= selectedVoiceStart) {
+      selectedVoiceStart = Math.max(0, selectedVoiceMax - 1);
+    }
+    renderLipSyncSliders();
+    if (modelPreviewInstance) modelPreviewInstance.setLipSyncSettings({ voiceStart: selectedVoiceStart, voiceMax: selectedVoiceMax });
+  }
+
+  function resetLipSync() {
+    selectedMouthIntensity = 0.5;
+    selectedVoiceStart = 5;
+    selectedVoiceMax = 59;
+    renderLipSyncSliders();
+    if (modelPreviewInstance) {
+      modelPreviewInstance.setLipSyncSettings({ mouthIntensity: selectedMouthIntensity, voiceStart: selectedVoiceStart, voiceMax: selectedVoiceMax });
+    }
+  }
+
+  function stopMicTest() {
+    micTestActive = false;
+    $('#edit-profile-model-mic-test').classList.remove('mic-test-active');
+    $('#edit-profile-model-mic-error').textContent = '';
+    if (micRafId) cancelAnimationFrame(micRafId);
+    micRafId = null;
+    if (micStream) { micStream.getTracks().forEach((t) => t.stop()); micStream = null; }
+    if (micAudioCtx) { try { micAudioCtx.close(); } catch (e) { /* noop */ } micAudioCtx = null; }
+    if (modelPreviewInstance) modelPreviewInstance.setVoiceLevel(0);
+  }
+
+  function startMicTest() {
+    if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+      $('#edit-profile-model-mic-error').textContent = 'Microphone access is not available in this browser';
+      return;
+    }
+    navigator.mediaDevices.getUserMedia({ audio: true }).then((stream) => {
+      if (!micTestActive) { stream.getTracks().forEach((t) => t.stop()); return; } // toggled off mid-request
+      micStream = stream;
+      const AudioCtx = window.AudioContext || window.webkitAudioContext;
+      micAudioCtx = new AudioCtx();
+      const source = micAudioCtx.createMediaStreamSource(stream);
+      const analyser = micAudioCtx.createAnalyser();
+      analyser.fftSize = 512;
+      analyser.smoothingTimeConstant = 0.4;
+      source.connect(analyser);
+      const data = new Uint8Array(analyser.frequencyBinCount);
+
+      const tick = () => {
+        if (!micTestActive) return;
+        analyser.getByteTimeDomainData(data);
+        let sumSquares = 0;
+        for (let i = 0; i < data.length; i++) {
+          const v = (data[i] - 128) / 128;
+          sumSquares += v * v;
+        }
+        const rms = Math.sqrt(sumSquares / data.length);
+        if (modelPreviewInstance) modelPreviewInstance.setVoiceLevel(rms);
+        micRafId = requestAnimationFrame(tick);
+      };
+      tick();
+    }).catch(() => {
+      $('#edit-profile-model-mic-error').textContent = 'Microphone permission was denied';
+      micTestActive = false;
+      $('#edit-profile-model-mic-test').classList.remove('mic-test-active');
+    });
+  }
+
+  function toggleMicTest() {
+    if (micTestActive) { stopMicTest(); return; }
+    micTestActive = true;
+    $('#edit-profile-model-mic-test').classList.add('mic-test-active');
+    $('#edit-profile-model-mic-error').textContent = '';
+    startMicTest();
+  }
+
   function renderPhotoPreview() {
     const preview = $('#edit-profile-photo-preview');
     preview.innerHTML = '';
@@ -170,6 +291,9 @@ const Profile = (() => {
     selectedModelOffsetX = AppState.me.avatarModelOffsetX ?? 0;
     selectedModelOffsetY = AppState.me.avatarModelOffsetY ?? 0;
     selectedModelRotationY = AppState.me.avatarModelRotationY ?? 0;
+    selectedMouthIntensity = AppState.me.avatarModelMouthIntensity ?? 0.5;
+    selectedVoiceStart = AppState.me.avatarModelVoiceStart ?? 5;
+    selectedVoiceMax = AppState.me.avatarModelVoiceMax ?? 59;
     renderPhotoPreview();
     renderNameColorSwatches();
     renderModelSection();
@@ -209,7 +333,7 @@ const Profile = (() => {
 
     const finalizeSave = (avatarUrl) => {
       // Do not send avatarColor (removed from UI) so pass undefined
-      Api.auth.updateMe(displayName, undefined, avatarUrl, selectedNameColor, selectedModelUrl, avatarMode, selectedModelZoom, selectedModelOffsetX, selectedModelOffsetY, selectedModelRotationY)
+      Api.auth.updateMe(displayName, undefined, avatarUrl, selectedNameColor, selectedModelUrl, avatarMode, selectedModelZoom, selectedModelOffsetX, selectedModelOffsetY, selectedModelRotationY, selectedMouthIntensity, selectedVoiceStart, selectedVoiceMax)
         .then((data) => {
           Object.assign(AppState.me, data.user);
           $('#me-name').textContent = AppState.me.displayName;
@@ -280,12 +404,20 @@ const Profile = (() => {
       selectedModelOffsetX = 0;
       selectedModelOffsetY = 0;
       selectedModelRotationY = 0;
+      selectedMouthIntensity = 0.5;
+      selectedVoiceStart = 5;
+      selectedVoiceMax = 59;
       renderModelSection();
       disposeModelPreview();
     });
     $('#edit-profile-model-zoom-slider').addEventListener('input', (e) => applyZoomFromSlider(e.target.value));
     $('#edit-profile-model-rotation-slider').addEventListener('input', (e) => applyRotationFromSlider(e.target.value));
     $('#edit-profile-model-zoom-reset').addEventListener('click', resetFraming);
+    $('#edit-profile-model-mouth-slider').addEventListener('input', (e) => applyMouthIntensityFromSlider(e.target.value));
+    $('#edit-profile-model-voicestart-slider').addEventListener('input', (e) => applyVoiceStartFromSlider(e.target.value));
+    $('#edit-profile-model-voicemax-slider').addEventListener('input', (e) => applyVoiceMaxFromSlider(e.target.value));
+    $('#edit-profile-model-lipsync-reset').addEventListener('click', resetLipSync);
+    $('#edit-profile-model-mic-test').addEventListener('click', toggleMicTest);
     $('#edit-profile-model-file').addEventListener('change', (e) => {
       const file = e.target.files && e.target.files[0];
       e.target.value = '';
@@ -303,6 +435,9 @@ const Profile = (() => {
           selectedModelOffsetX = 0;
           selectedModelOffsetY = 0;
           selectedModelRotationY = 0;
+          selectedMouthIntensity = 0.5;
+          selectedVoiceStart = 5;
+          selectedVoiceMax = 59;
           renderModelSection();
           mountModelPreview(selectedModelUrl);
         })

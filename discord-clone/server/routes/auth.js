@@ -26,6 +26,9 @@ function publicUser(u) {
     avatarModelOffsetX: u.avatar_model_offset_x,
     avatarModelOffsetY: u.avatar_model_offset_y,
     avatarModelRotationY: u.avatar_model_rotation_y,
+    avatarModelMouthIntensity: u.avatar_model_mouth_intensity,
+    avatarModelVoiceStart: u.avatar_model_voice_start,
+    avatarModelVoiceMax: u.avatar_model_voice_max,
     status: u.status
   };
 }
@@ -108,7 +111,8 @@ router.patch('/me', auth, async (req, res) => {
   try {
     const {
       displayName, avatarColor, avatarUrl, nameColor, avatarModelUrl, avatarMode,
-      avatarModelZoom, avatarModelOffsetX, avatarModelOffsetY, avatarModelRotationY
+      avatarModelZoom, avatarModelOffsetX, avatarModelOffsetY, avatarModelRotationY,
+      avatarModelMouthIntensity, avatarModelVoiceStart, avatarModelVoiceMax
     } = req.body || {};
     const updates = [];
     const values = [];
@@ -190,6 +194,32 @@ router.patch('/me', auth, async (req, res) => {
       const wrapped = Math.atan2(Math.sin(r), Math.cos(r));
       updates.push(`avatar_model_rotation_y = $${idx++}`);
       values.push(wrapped);
+    }
+
+    // Lip-sync tuning: how far the mouth shape key opens (0-1) and the
+    // input-volume window (0-100) it ramps over. Clamped rather than
+    // rejected, same reasoning as the framing values above - these come
+    // from sliders, so a slightly out-of-range value shouldn't fail the
+    // whole save.
+    if (avatarModelMouthIntensity !== undefined) {
+      const m = Number(avatarModelMouthIntensity);
+      if (!Number.isFinite(m)) return res.status(400).json({ error: 'Invalid mouth intensity value' });
+      updates.push(`avatar_model_mouth_intensity = $${idx++}`);
+      values.push(Math.min(1, Math.max(0, m)));
+    }
+
+    if (avatarModelVoiceStart !== undefined) {
+      const s = Number(avatarModelVoiceStart);
+      if (!Number.isFinite(s)) return res.status(400).json({ error: 'Invalid voice start threshold' });
+      updates.push(`avatar_model_voice_start = $${idx++}`);
+      values.push(Math.min(100, Math.max(0, s)));
+    }
+
+    if (avatarModelVoiceMax !== undefined) {
+      const x = Number(avatarModelVoiceMax);
+      if (!Number.isFinite(x)) return res.status(400).json({ error: 'Invalid voice max threshold' });
+      updates.push(`avatar_model_voice_max = $${idx++}`);
+      values.push(Math.min(100, Math.max(0, x)));
     }
 
     if (updates.length === 0) {

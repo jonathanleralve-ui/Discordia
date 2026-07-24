@@ -426,7 +426,7 @@ const VoiceChat = (() => {
     delete avatar3DInstances[key];
   }
 
-  function mountAvatar3D(ring, key, modelUrl, zoom, offsetX, offsetY, rotationY) {
+  function mountAvatar3D(ring, key, modelUrl, zoom, offsetX, offsetY, rotationY, mouthIntensity, voiceStart, voiceMax) {
     let inst = avatar3DInstances[key];
 
     if (inst && inst.modelUrl !== modelUrl) {
@@ -447,15 +447,17 @@ const VoiceChat = (() => {
       const api = window.Avatar3D.createAvatar(container, {
         modelUrl,
         zoom, offsetX, offsetY, rotationY,
+        mouthIntensity, voiceStart, voiceMax,
         onError: () => { container.classList.add('avatar-3d-error'); }
       });
       inst = avatar3DInstances[key] = { api, modelUrl, container };
     } else {
-      // Framing can change (saved from Edit Profile) without the model URL
-      // changing, e.g. after VoiceChat.refreshSelfTile() - keep it in sync
-      // on an already-mounted instance instead of only applying it at
-      // creation time.
+      // Framing/lip-sync can change (saved from Edit Profile) without the
+      // model URL changing, e.g. after VoiceChat.refreshSelfTile() - keep
+      // it in sync on an already-mounted instance instead of only applying
+      // it at creation time.
       inst.api.setFraming({ zoom, offsetX, offsetY, rotationY });
+      inst.api.setLipSyncSettings({ mouthIntensity, voiceStart, voiceMax });
     }
 
     ring.appendChild(inst.container);
@@ -469,10 +471,10 @@ const VoiceChat = (() => {
     list.innerHTML = '';
 
     if (connectedChannelId) {
-      list.appendChild(participantTile('self', me.displayName, me.avatarColor, muted, sharingScreen, true, me.avatarUrl, me.nameColor, me.avatarMode, me.avatarModelUrl, me.avatarModelZoom, me.avatarModelOffsetX, me.avatarModelOffsetY, me.avatarModelRotationY));
+      list.appendChild(participantTile('self', me.displayName, me.avatarColor, muted, sharingScreen, true, me.avatarUrl, me.nameColor, me.avatarMode, me.avatarModelUrl, me.avatarModelZoom, me.avatarModelOffsetX, me.avatarModelOffsetY, me.avatarModelRotationY, me.avatarModelMouthIntensity, me.avatarModelVoiceStart, me.avatarModelVoiceMax));
     }
     Object.entries(peers).forEach(([socketId, { info }]) => {
-      list.appendChild(participantTile(socketId, info.displayName, info.avatarColor, !!info.muted, info.sharing, false, info.avatarUrl, info.nameColor, info.avatarMode, info.avatarModelUrl, info.avatarModelZoom, info.avatarModelOffsetX, info.avatarModelOffsetY, info.avatarModelRotationY));
+      list.appendChild(participantTile(socketId, info.displayName, info.avatarColor, !!info.muted, info.sharing, false, info.avatarUrl, info.nameColor, info.avatarMode, info.avatarModelUrl, info.avatarModelZoom, info.avatarModelOffsetX, info.avatarModelOffsetY, info.avatarModelRotationY, info.avatarModelMouthIntensity, info.avatarModelVoiceStart, info.avatarModelVoiceMax));
     });
 
     if (list.children.length === 0) {
@@ -482,7 +484,7 @@ const VoiceChat = (() => {
     enforcePanelMinHeight();
   }
 
-  function participantTile(key, name, color, isMuted, isSharing, isSelf, avatarUrl, nameColor, avatarMode, avatarModelUrl, avatarModelZoom, avatarModelOffsetX, avatarModelOffsetY, avatarModelRotationY) {
+  function participantTile(key, name, color, isMuted, isSharing, isSelf, avatarUrl, nameColor, avatarMode, avatarModelUrl, avatarModelZoom, avatarModelOffsetX, avatarModelOffsetY, avatarModelRotationY, avatarModelMouthIntensity, avatarModelVoiceStart, avatarModelVoiceMax) {
     const tile = document.createElement('div');
     tile.className = 'voice-tile';
     tile.dataset.speaker = key;
@@ -511,7 +513,7 @@ const VoiceChat = (() => {
     }, { passive: false });
 
     if (avatarMode === '3d' && avatarModelUrl) {
-      mountAvatar3D(ring, key, avatarModelUrl, avatarModelZoom, avatarModelOffsetX, avatarModelOffsetY, avatarModelRotationY);
+      mountAvatar3D(ring, key, avatarModelUrl, avatarModelZoom, avatarModelOffsetX, avatarModelOffsetY, avatarModelRotationY, avatarModelMouthIntensity, avatarModelVoiceStart, avatarModelVoiceMax);
     } else {
       disposeAvatar3D(key);
       const avatar = avatarEl({ displayName: name, avatarColor: color, avatarUrl: avatarUrl });

@@ -968,6 +968,37 @@ input { font-family: inherit; }
   accent-color: var(--blurple, #5865F2);
 }
 
+.model-framing-hint--section {
+  margin-top: 10px;
+  padding-top: 10px;
+  border-top: 1px solid var(--background-modifier-accent, #3f4147);
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.02em;
+  color: var(--text-normal);
+}
+
+.model-framing-label {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.model-framing-value {
+  font-weight: 400;
+  color: var(--text-muted, #b5bac1);
+}
+
+#edit-profile-model-mic-test.mic-test-active {
+  background: var(--red, #ED4245);
+  color: #fff;
+}
+
+#edit-profile-model-mic-error {
+  margin: 2px 0 0;
+  font-size: 12px;
+}
+
 .profile-model-controls .profile-model-preview-actions {
   flex-direction: row;
   flex-wrap: wrap;

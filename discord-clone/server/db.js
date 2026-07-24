@@ -61,6 +61,16 @@ ALTER TABLE users ADD COLUMN IF NOT EXISTS avatar_model_offset_y DOUBLE PRECISIO
 -- just left/right so the user can pick which side faces the camera.
 ALTER TABLE users ADD COLUMN IF NOT EXISTS avatar_model_rotation_y DOUBLE PRECISION NOT NULL DEFAULT 0;
 
+-- Lip-sync tuning for the 3D model: how far the mouth shape key opens at
+-- most (0-1, mirrors the old hardcoded CONFIG.mouthLimit default of 0.5),
+-- and the input-volume window (0-100, RMS-ish scale used by voice.js's
+-- speaking meter) over which it ramps from closed to fully open - below
+-- voice_start nothing happens, at/above voice_max it's fully open. Defaults
+-- match what was previously hardcoded in avatar3d.js's CONFIG.
+ALTER TABLE users ADD COLUMN IF NOT EXISTS avatar_model_mouth_intensity DOUBLE PRECISION NOT NULL DEFAULT 0.5;
+ALTER TABLE users ADD COLUMN IF NOT EXISTS avatar_model_voice_start DOUBLE PRECISION NOT NULL DEFAULT 5;
+ALTER TABLE users ADD COLUMN IF NOT EXISTS avatar_model_voice_max DOUBLE PRECISION NOT NULL DEFAULT 59;
+
 CREATE TABLE IF NOT EXISTS friendships (
   id SERIAL PRIMARY KEY,
   requester_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,

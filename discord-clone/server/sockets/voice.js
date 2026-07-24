@@ -33,6 +33,9 @@ function getRoster(channelId) {
     avatarModelOffsetX: info.avatarModelOffsetX,
     avatarModelOffsetY: info.avatarModelOffsetY,
     avatarModelRotationY: info.avatarModelRotationY,
+    avatarModelMouthIntensity: info.avatarModelMouthIntensity,
+    avatarModelVoiceStart: info.avatarModelVoiceStart,
+    avatarModelVoiceMax: info.avatarModelVoiceMax,
     sharing: info.sharing,
     muted: info.muted
   }));
@@ -83,7 +86,7 @@ function registerVoiceHandlers(io, socket, db) {
         leaveVoiceChannel(io, socket, socket.currentVoiceChannel);
       }
 
-      const userResult = await db.query('SELECT display_name, avatar_color, avatar_url, name_color, avatar_model_url, avatar_mode, avatar_model_zoom, avatar_model_offset_x, avatar_model_offset_y, avatar_model_rotation_y FROM users WHERE id = $1', [uid]);
+      const userResult = await db.query('SELECT display_name, avatar_color, avatar_url, name_color, avatar_model_url, avatar_mode, avatar_model_zoom, avatar_model_offset_x, avatar_model_offset_y, avatar_model_rotation_y, avatar_model_mouth_intensity, avatar_model_voice_start, avatar_model_voice_max FROM users WHERE id = $1', [uid]);
       const user = userResult.rows[0];
 
       // Tell the joining client who is already in the channel, so it can initiate connections to each
@@ -94,6 +97,9 @@ function registerVoiceHandlers(io, socket, db) {
         nameColor: user.name_color, avatarModelUrl: user.avatar_model_url, avatarMode: user.avatar_mode,
         avatarModelZoom: user.avatar_model_zoom, avatarModelOffsetX: user.avatar_model_offset_x, avatarModelOffsetY: user.avatar_model_offset_y,
         avatarModelRotationY: user.avatar_model_rotation_y,
+        avatarModelMouthIntensity: user.avatar_model_mouth_intensity,
+        avatarModelVoiceStart: user.avatar_model_voice_start,
+        avatarModelVoiceMax: user.avatar_model_voice_max,
         sharing: false, muted: !!muted
       };
       voiceRoom(cid).set(socket.id, info);

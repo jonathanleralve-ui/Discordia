@@ -43,14 +43,35 @@ function createAvatar3D(container, options = {}) {
         // must be enabled), with the resulting { zoom, offsetX, offsetY, rotationY } -
         // so the caller can save it.
         onFramingChange = () => {},
+        // Lip-sync tuning, saved to the user's profile alongside framing so
+        // it's consistent everywhere the model renders. mouthIntensity is
+        // how far the mouth shape key opens at most (0-1). voiceStart/
+        // voiceMax are the input-volume window (0-100, same RMS-ish scale
+        // voice.js's speaking meter uses) the mouth ramps open across:
+        // below voiceStart it stays closed, at/above voiceMax it's fully
+        // open (capped by mouthIntensity).
+        mouthIntensity: initialMouthIntensity = 0.5,
+        voiceStart: initialVoiceStart = 5,
+        voiceMax: initialVoiceMax = 59,
     } = options;
+
+    // Same clamp ranges as the server (server/routes/auth.js).
+    const MOUTH_INTENSITY_MIN = 0, MOUTH_INTENSITY_MAX = 1;
+    const VOICE_THRESHOLD_MIN = 0, VOICE_THRESHOLD_MAX = 100;
+
+    function clampMouthIntensity(v) {
+        return Math.min(MOUTH_INTENSITY_MAX, Math.max(MOUTH_INTENSITY_MIN, v));
+    }
+    function clampVoiceThreshold(v) {
+        return Math.min(VOICE_THRESHOLD_MAX, Math.max(VOICE_THRESHOLD_MIN, v));
+    }
 
     // Update CONFIG in createAvatar3D
     // In createAvatar3D, update CONFIG:
     const CONFIG = {
-        startThreshold: 5,
-        maxThreshold: 59,
-        mouthLimit: 0.5,
+        startThreshold: clampVoiceThreshold(initialVoiceStart),
+        maxThreshold: clampVoiceThreshold(initialVoiceMax),
+        mouthLimit: clampMouthIntensity(initialMouthIntensity),
         blinkIntervalMin: 2,
         blinkIntervalMax: 4,
         cameraPosition: options.cameraPosition || [0, 1.0, 2.5], // Closer
@@ -366,6 +387,16 @@ function createAvatar3D(container, options = {}) {
         const maxNorm = CONFIG.maxThreshold / 100;
         const range = maxNorm - startNorm;
 
+        // A start threshold at or past the max threshold (possible while
+        // someone is mid-drag on the sliders) would otherwise divide by a
+        // zero/negative range - just treat that as "never open" until the
+        // values make sense again, rather than producing NaN/Infinity.
+        if (range <= 0) {
+            targetMouth = Math.max(targetMouth * 0.9, 0);
+            applyMouth(targetMouth);
+            return;
+        }
+
         let mouthVal = 0;
         if (voiceLevel > startNorm) {
             mouthVal = (voiceLevel - startNorm) / range;
@@ -424,6 +455,17 @@ function createAvatar3D(container, options = {}) {
                 if (controls) controls.update();
                 renderer.render(scene, camera);
             }
+        },
+        getLipSyncSettings() {
+            return { mouthIntensity: CONFIG.mouthLimit, voiceStart: CONFIG.startThreshold, voiceMax: CONFIG.maxThreshold };
+        },
+        // Used by the lip-sync sliders in Edit Profile so dragging them
+        // previews live against the mounted model, the same way
+        // setFraming() does for zoom/rotate.
+        setLipSyncSettings({ mouthIntensity, voiceStart, voiceMax } = {}) {
+            if (mouthIntensity !== undefined) CONFIG.mouthLimit = clampMouthIntensity(mouthIntensity);
+            if (voiceStart !== undefined) CONFIG.startThreshold = clampVoiceThreshold(voiceStart);
+            if (voiceMax !== undefined) CONFIG.maxThreshold = clampVoiceThreshold(voiceMax);
         },
         toggleBlink(enabled) {
             isBlinkEnabled = enabled !== undefined ? enabled : !isBlinkEnabled;
